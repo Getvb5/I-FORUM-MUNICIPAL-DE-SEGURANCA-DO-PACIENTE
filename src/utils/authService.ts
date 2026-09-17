@@ -120,5 +120,3 @@ export function logoutAdmin(): void {
 export function isAuthenticated(): boolean {
   return getCurrentAdmin() !== null;
 }
-
-export const DEMO_ACCOUNTS = DEFAULT_ACCOUNTS;

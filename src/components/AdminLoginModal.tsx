@@ -7,12 +7,9 @@ import {
   Mail, 
   Eye, 
   EyeOff, 
-  AlertCircle, 
-  CheckCircle2, 
-  Building2, 
-  HelpCircle 
+  AlertCircle 
 } from 'lucide-react';
-import { loginAdmin, DEMO_ACCOUNTS } from '../utils/authService';
+import { loginAdmin } from '../utils/authService';
 import { AdminUser } from '../types';
 
 interface AdminLoginModalProps {
@@ -53,15 +50,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         onLoginSuccess(res.user);
         onClose();
       } else {
-        setErrorMsg(res.error || 'Credenciais inválidas.');
+        setErrorMsg(res.error || 'E-mail ou senha incorretos.');
       }
     }, 300);
-  };
-
-  const handleSelectDemoAccount = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setErrorMsg(null);
   };
 
   return (
@@ -118,8 +109,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                     setEmail(e.target.value);
                     setErrorMsg(null);
                   }}
-                  placeholder="exemplo@recife.pe.gov.br"
+                  placeholder="seu.email@recife.pe.gov.br"
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                  autoComplete="username"
                   required
                 />
               </div>
@@ -130,7 +122,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
                   Senha de Acesso
                 </label>
-                <span className="text-[11px] text-slate-400">Perfil autorizado</span>
               </div>
               <div className="relative">
                 <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -143,12 +134,14 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   }}
                   placeholder="Digite sua senha"
                   className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                  autoComplete="current-password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  title={showPassword ? 'Ocultar senha' : 'Ver senha'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -172,35 +165,10 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </button>
           </form>
 
-          {/* Quick Demo Profiles Box */}
-          <div className="pt-4 border-t border-slate-200 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-              <Building2 className="w-3.5 h-3.5 text-[#3498FE]" />
-              <span>Contas com Acesso Autorizado (Clique para preencher):</span>
-            </div>
-
-            <div className="space-y-1.5">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => handleSelectDemoAccount(acc.email, acc.passwordHash)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 hover:border-[#EA7600] hover:bg-orange-50/20 text-left transition cursor-pointer flex items-center justify-between group"
-                >
-                  <div>
-                    <div className="text-xs font-bold text-[#001B44] group-hover:text-[#EA7600]">
-                      {acc.user.name} ({acc.user.roleTitle})
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      {acc.email} • Senha: <span className="font-mono font-bold text-slate-700">{acc.passwordHash}</span>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-bold text-[#3498FE] group-hover:text-[#EA7600] group-hover:underline">
-                    Selecionar
-                  </span>
-                </button>
-              ))}
-            </div>
+          <div className="pt-3 border-t border-slate-100 text-center">
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Ambiente protegido. Em caso de dúvidas sobre suas credenciais, contate a comissão organizadora pelo e-mail oficial.
+            </p>
           </div>
         </div>
       </div>
