@@ -1,0 +1,6 @@
+{
+  "name": "Submissão de Trabalhos - I Fórum de Qualidade e Segurança do Paciente",
+  "description": "Sistema oficial de submissão de trabalhos (Relatos de Experiência e Produções Artísticas) para a Oficina do I Fórum Municipal de Qualidade e Segurança do Paciente da Rede SUS Recife.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

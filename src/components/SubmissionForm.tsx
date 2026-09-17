@@ -1,0 +1,1455 @@
+import React, { useState, useId } from 'react';
+import { 
+  FileText, 
+  Send, 
+  CheckCircle2, 
+  AlertCircle, 
+  AlertTriangle, 
+  Info, 
+  Building2, 
+  User, 
+  Mail, 
+  Phone, 
+  Plus, 
+  Trash2, 
+  Upload, 
+  Image as ImageIcon, 
+  HelpCircle, 
+  Palette, 
+  BookOpen, 
+  Calendar,
+  Sparkles,
+  ChevronRight
+} from 'lucide-react';
+import { 
+  WorkSubmissionData, 
+  AuthorData, 
+  SubmissionModality, 
+  ThematicAxisId,
+  ArtisticProductionType,
+  SubmissionAttachment
+} from '../types';
+import { 
+  THEMATIC_AXES, 
+  SUBMISSION_RULES, 
+  CNES_HEALTH_UNITS, 
+  PROFESSIONAL_BACKGROUND_OPTIONS,
+  ACCESSIBILITY_OPTIONS,
+  FORUM_INFO 
+} from '../data/forumInfo';
+import { formatCPF, isValidCPF } from '../utils/cpfValidator';
+import { countWords, getWordCountStatus } from '../utils/wordCounter';
+
+interface SubmissionFormProps {
+  onSubmit: (submission: WorkSubmissionData) => void;
+  onOpenRules: () => void;
+  existingSubmissions?: WorkSubmissionData[];
+}
+
+export const SubmissionForm: React.FC<SubmissionFormProps> = ({
+  onSubmit,
+  onOpenRules,
+  existingSubmissions = []
+}) => {
+  const formId = useId();
+
+  // Basic Submission State
+  const [thematicAxis, setThematicAxis] = useState<ThematicAxisId>('EIXO_1');
+  const [modality, setModality] = useState<SubmissionModality>('RELATO_EXPERIENCIA');
+  const [title, setTitle] = useState('');
+  const [developmentPeriod, setDevelopmentPeriod] = useState('2024');
+  const [accessibilityNeed, setAccessibilityNeed] = useState(ACCESSIBILITY_OPTIONS[0]);
+
+  // Main Author State
+  const [mainAuthor, setMainAuthor] = useState<AuthorData>({
+    id: 'author_main',
+    fullName: '',
+    cpf: '',
+    email: '',
+    phone: '',
+    sesauMatricula: '',
+    professionalBackground: '',
+    roleOrFunction: '',
+    workLocation: '',
+    cnesUnit: '',
+    authorType: 'PROFISSIONAL_GESTOR',
+    isMainAuthor: true
+  });
+
+  // Co-authors list (up to 7 coauthors, total 8 authors)
+  const [coAuthors, setCoAuthors] = useState<AuthorData[]>([]);
+
+  // Experience Report State (Anexo A)
+  const [reportWhatWhy, setReportWhatWhy] = useState('');
+  const [reportHowDeveloped, setReportHowDeveloped] = useState('');
+  const [reportWhatLearned, setReportWhatLearned] = useState('');
+  const [reportChallenges, setReportChallenges] = useState('');
+  const [reportLikedDisliked, setReportLikedDisliked] = useState('');
+  const [reportWhatCanBeDone, setReportWhatCanBeDone] = useState('');
+
+  // Artistic Production State (Anexo B)
+  const [artisticCategory, setArtisticCategory] = useState<ArtisticProductionType>('Fotografia');
+  const [customArtisticCategory, setCustomArtisticCategory] = useState('');
+  const [artisticCreationContext, setArtisticCreationContext] = useState('');
+  const [artisticTextContent, setArtisticTextContent] = useState('');
+
+  // Attachment State
+  const [attachedFile, setAttachedFile] = useState<SubmissionAttachment | undefined>(undefined);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  // Form Validation & Feedback
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCnesList, setShowCnesList] = useState(false);
+
+  // Word limits calculations
+  const titleStatus = getWordCountStatus(title, SUBMISSION_RULES.limits.titleWords);
+  const whatWhyStatus = getWordCountStatus(reportWhatWhy, SUBMISSION_RULES.limits.reportWhatWhyWords);
+  const howDevelopedStatus = getWordCountStatus(reportHowDeveloped, SUBMISSION_RULES.limits.reportHowDevelopedWords);
+  const whatLearnedStatus = getWordCountStatus(reportWhatLearned, SUBMISSION_RULES.limits.reportWhatLearnedWords);
+  const challengesStatus = getWordCountStatus(reportChallenges, SUBMISSION_RULES.limits.reportChallengesWords);
+  const likedDislikedStatus = getWordCountStatus(reportLikedDisliked, SUBMISSION_RULES.limits.reportLikedDislikedWords);
+  const whatCanBeDoneStatus = getWordCountStatus(reportWhatCanBeDone, SUBMISSION_RULES.limits.reportWhatCanBeDoneWords);
+
+  const totalReportWords = 
+    whatWhyStatus.count + 
+    howDevelopedStatus.count + 
+    whatLearnedStatus.count + 
+    challengesStatus.count + 
+    likedDislikedStatus.count + 
+    whatCanBeDoneStatus.count;
+  
+  const isReportTotalOver = totalReportWords > SUBMISSION_RULES.limits.reportTotalWords;
+
+  const artisticContextStatus = getWordCountStatus(artisticCreationContext, SUBMISSION_RULES.limits.artisticContextWords);
+  const artisticTextStatus = getWordCountStatus(artisticTextContent, SUBMISSION_RULES.limits.artisticTextWords);
+
+  // Vacancy counts per Axis
+  const axisCounts: Record<ThematicAxisId, number> = {
+    EIXO_1: existingSubmissions.filter(s => s.thematicAxis === 'EIXO_1').length,
+    EIXO_2: existingSubmissions.filter(s => s.thematicAxis === 'EIXO_2').length,
+    EIXO_3: existingSubmissions.filter(s => s.thematicAxis === 'EIXO_3').length
+  };
+
+  // Eligibility check: If main author is resident or student, at least one coauthor must be professional/manager
+  const mainAuthorIsStudentOrResident = mainAuthor.authorType === 'RESIDENTE' || mainAuthor.authorType === 'ESTUDANTE';
+  const hasLinkedProfessional = 
+    mainAuthor.authorType === 'PROFISSIONAL_GESTOR' || 
+    coAuthors.some(co => co.authorType === 'PROFISSIONAL_GESTOR');
+
+  // Co-author management
+  const handleAddCoAuthor = () => {
+    if (coAuthors.length >= 7) return; // total authors 1 + 7 = 8
+    const newCoAuthor: AuthorData = {
+      id: `coauthor_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      fullName: '',
+      cpf: '',
+      email: '',
+      phone: '',
+      sesauMatricula: '',
+      professionalBackground: '',
+      roleOrFunction: '',
+      workLocation: '',
+      cnesUnit: '',
+      authorType: 'PROFISSIONAL_GESTOR',
+      isMainAuthor: false
+    };
+    setCoAuthors([...coAuthors, newCoAuthor]);
+  };
+
+  const handleUpdateCoAuthor = (index: number, updatedFields: Partial<AuthorData>) => {
+    setCoAuthors(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], ...updatedFields };
+      return copy;
+    });
+  };
+
+  const handleRemoveCoAuthor = (index: number) => {
+    setCoAuthors(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // File upload handler
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPhotoError(null);
+
+    // If photograph, validate resolution
+    if (modality === 'PRODUCAO_ARTISTICA' && artisticCategory === 'Fotografia') {
+      if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+        setPhotoError('Fotografias devem estar no formato JPG ou PNG.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          if (img.width < 1080 || img.height < 1080) {
+            setPhotoError(`A resolução da fotografia (${img.width}x${img.height} px) é inferior à mínima de 1080x1080 px exigida no item 7.7.e.`);
+          }
+          setAttachedFile({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            dataUrl: event.target?.result as string,
+            previewUrl: event.target?.result as string,
+            dimensions: { width: img.width, height: img.height }
+          });
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // General file (DOCX, PDF, etc.)
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAttachedFile({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          dataUrl: event.target?.result as string
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Form submission validation
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setGeneralError(null);
+
+    // 1. Title validation
+    if (!title.trim()) {
+      setGeneralError('Por favor, informe o título do trabalho.');
+      return;
+    }
+    if (titleStatus.isOver) {
+      setGeneralError(`O título do trabalho excede o limite máximo de 15 palavras (${titleStatus.count} palavras informadas).`);
+      return;
+    }
+
+    // 2. Main Author validation
+    if (!mainAuthor.fullName.trim() || !mainAuthor.cpf.trim() || !mainAuthor.email.trim() || !mainAuthor.phone.trim()) {
+      setGeneralError('Preencha todos os dados obrigatórios do(a) Autor(a) Principal.');
+      return;
+    }
+    if (!isValidCPF(mainAuthor.cpf)) {
+      setGeneralError('O CPF do(a) Autor(a) Principal é inválido.');
+      return;
+    }
+    if (!mainAuthor.professionalBackground) {
+      setGeneralError('Informe a formação profissional do(a) Autor(a) Principal.');
+      return;
+    }
+    if (!mainAuthor.roleOrFunction.trim()) {
+      setGeneralError('Informe o cargo ou função do(a) Autor(a) Principal.');
+      return;
+    }
+    if (!mainAuthor.workLocation.trim()) {
+      setGeneralError('Informe o local de atuação do(a) Autor(a) Principal.');
+      return;
+    }
+
+    // 3. Limit of submissions per author (item 7.6)
+    const formattedMainCpf = formatCPF(mainAuthor.cpf);
+    const mainAuthorSubmissionsCount = existingSubmissions.filter(
+      s => s.mainAuthor.cpf === formattedMainCpf
+    ).length;
+
+    if (mainAuthorSubmissionsCount >= SUBMISSION_RULES.maxWorksAsMainAuthor) {
+      setGeneralError(`Limite de submissões excedido (Item 7.6): O CPF ${formattedMainCpf} já possui 2 trabalhos inscritos como autor principal.`);
+      return;
+    }
+
+    // 4. Eligibility check (item 7.1)
+    if (mainAuthorIsStudentOrResident && !hasLinkedProfessional) {
+      setGeneralError('Conforme o item 7.1 do Edital, trabalhos submetidos por estudantes ou residentes devem conter ao menos um/a profissional ou gestor/a vinculado/a à Rede de Saúde do Recife na lista de coautores.');
+      return;
+    }
+
+    // 5. Coauthors validation
+    for (let i = 0; i < coAuthors.length; i++) {
+      const co = coAuthors[i];
+      if (!co.fullName.trim()) {
+        setGeneralError(`Preencha o nome completo do coautor #${i + 1}.`);
+        return;
+      }
+      if (!co.cpf.trim() || !isValidCPF(co.cpf)) {
+        setGeneralError(`O CPF do coautor #${i + 1} (${co.fullName || 'Sem nome'}) é inválido.`);
+        return;
+      }
+      if (!co.email.trim() || !co.phone.trim()) {
+        setGeneralError(`Preencha o e-mail e telefone do coautor #${i + 1}.`);
+        return;
+      }
+    }
+
+    // 6. Modality-specific validations
+    if (modality === 'RELATO_EXPERIENCIA') {
+      if (!reportWhatWhy.trim() || !reportHowDeveloped.trim() || !reportWhatLearned.trim() || !reportChallenges.trim() || !reportLikedDisliked.trim() || !reportWhatCanBeDone.trim()) {
+        setGeneralError('Preencha todos os 6 campos obrigatórios do Roteiro para Relatos de Experiência (Anexo A).');
+        return;
+      }
+
+      if (whatWhyStatus.isOver || howDevelopedStatus.isOver || whatLearnedStatus.isOver || challengesStatus.isOver || likedDislikedStatus.isOver || whatCanBeDoneStatus.isOver) {
+        setGeneralError('Um ou mais campos do Relato de Experiência ultrapassam o limite de palavras estipulado no Anexo A.');
+        return;
+      }
+
+      if (isReportTotalOver) {
+        setGeneralError(`O relato ultrapassa o limite total de 1.000 palavras (atual: ${totalReportWords} palavras). Reduza o texto antes de enviar.`);
+        return;
+      }
+    } else {
+      // Produção Artística
+      if (!artisticCreationContext.trim()) {
+        setGeneralError('Informe o contexto de criação da Produção Artística (Anexo B).');
+        return;
+      }
+      if (artisticContextStatus.isOver) {
+        setGeneralError(`O contexto de criação ultrapassa o limite máximo de 300 palavras (atual: ${artisticContextStatus.count} palavras).`);
+        return;
+      }
+
+      if (['Texto Literário', 'Cordel', 'Poesia'].includes(artisticCategory)) {
+        if (!artisticTextContent.trim() && !attachedFile) {
+          setGeneralError('Digite o texto/cordel/poesia no campo correspondente ou anexe o arquivo (DOCX/PDF).');
+          return;
+        }
+        if (artisticTextStatus.isOver) {
+          setGeneralError(`O texto da produção artística ultrapassa o limite de 1.000 palavras (atual: ${artisticTextStatus.count} palavras).`);
+          return;
+        }
+      }
+
+      if (artisticCategory === 'Fotografia' && !attachedFile) {
+        setGeneralError('Anexe o arquivo de imagem da fotografia (JPG ou PNG, resolução mínima 1080x1080 px).');
+        return;
+      }
+    }
+
+    if (!termsAccepted) {
+      setGeneralError('É necessário declarar a veracidade das informações e concordar com as normas do edital da oficina.');
+      return;
+    }
+
+    // Build Submission Payload
+    setIsSubmitting(true);
+
+    const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const axisIndex = thematicAxis === 'EIXO_1' ? 1 : thematicAxis === 'EIXO_2' ? 2 : 3;
+    const protocolNumber = `SUB-NMSPR-2026-E${axisIndex}-${randomSuffix}`;
+    const id = `sub_${Date.now()}_${randomSuffix}`;
+
+    const selectedAxis = THEMATIC_AXES.find(a => a.id === thematicAxis);
+
+    const submissionPayload: WorkSubmissionData = {
+      id,
+      protocolNumber,
+      submittedAt: new Date().toISOString(),
+      thematicAxis,
+      thematicAxisLabel: selectedAxis?.title || `Eixo ${axisIndex}`,
+      modality,
+      title: title.trim(),
+      developmentPeriod,
+      mainAuthor: {
+        ...mainAuthor,
+        cpf: formatCPF(mainAuthor.cpf),
+        fullName: mainAuthor.fullName.trim(),
+        email: mainAuthor.email.trim().toLowerCase(),
+        phone: mainAuthor.phone.trim(),
+        roleOrFunction: mainAuthor.roleOrFunction.trim(),
+        workLocation: mainAuthor.workLocation.trim()
+      },
+      coAuthors: coAuthors.map(co => ({
+        ...co,
+        cpf: formatCPF(co.cpf),
+        fullName: co.fullName.trim(),
+        email: co.email.trim().toLowerCase(),
+        phone: co.phone.trim()
+      })),
+      experienceReport: modality === 'RELATO_EXPERIENCIA' ? {
+        whatAndWhy: reportWhatWhy.trim(),
+        howDeveloped: reportHowDeveloped.trim(),
+        whatLearned: reportWhatLearned.trim(),
+        challenges: reportChallenges.trim(),
+        likedAndDisliked: reportLikedDisliked.trim(),
+        whatCanBeDone: reportWhatCanBeDone.trim()
+      } : undefined,
+      artisticProduction: modality === 'PRODUCAO_ARTISTICA' ? {
+        artisticCategory,
+        customArtisticCategory: artisticCategory === 'Outra manifestação artística' ? customArtisticCategory : undefined,
+        creationContext: artisticCreationContext.trim(),
+        textContent: artisticTextContent.trim() || undefined
+      } : undefined,
+      attachedFile,
+      status: 'SUBMETIDO',
+      slotOrder: (axisCounts[thematicAxis] || 0) + 1,
+      accessibilityNeed
+    };
+
+    setTimeout(() => {
+      setIsSubmitting(false);
+      onSubmit(submissionPayload);
+    }, 450);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} id="form-submissao-trabalho" className="space-y-6">
+      {/* Official Guidelines Alert & Fast Access */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#001B44] text-[#3498FE] flex items-center justify-center shrink-0">
+            <BookOpen className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-extrabold text-[#001B44] text-sm sm:text-base leading-tight">
+              Regras do Item 7: Submissão de Trabalhos na Oficina
+            </h3>
+            <p className="text-xs text-slate-600 mt-0.5">
+              12 vagas por eixo (36 no total por ordem de inscrição). Até 8 autores por trabalho. Trabalhos de 2023 a 2026.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpenRules}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-[#001B44] bg-slate-100 hover:bg-slate-200 border border-slate-300 transition cursor-pointer shrink-0"
+        >
+          <Info className="w-3.5 h-3.5 text-[#EA7600]" />
+          Ver Detalhes do Edital (Item 7)
+        </button>
+      </div>
+
+      {/* General Error Banner */}
+      {generalError && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1 font-semibold">{generalError}</div>
+        </div>
+      )}
+
+      {/* STEP 1: EIXO TEMÁTICO, MODALIDADE E TÍTULO */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-6">
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <span className="w-7 h-7 rounded-lg bg-[#001B44] text-white flex items-center justify-center text-xs font-extrabold">
+            1
+          </span>
+          <div>
+            <h3 className="text-sm sm:text-base font-extrabold text-[#001B44]">
+              Identificação do Trabalho e Modalidade
+            </h3>
+            <p className="text-xs text-slate-500">
+              Selecione o eixo temático, a modalidade de apresentação e o período de realização (2023-2026).
+            </p>
+          </div>
+        </div>
+
+        {/* Escolha do Eixo Temático */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+            Eixo Temático Escolhido <span className="text-[#EA7600]">*</span>
+          </label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {THEMATIC_AXES.map((axis) => {
+              const count = axisCounts[axis.id] || 0;
+              const isSelected = thematicAxis === axis.id;
+              const remaining = Math.max(0, axis.maxSlots - count);
+
+              return (
+                <div
+                  key={axis.id}
+                  onClick={() => setThematicAxis(axis.id)}
+                  className={`p-4 rounded-xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
+                    isSelected
+                      ? 'border-[#EA7600] bg-orange-50/40 shadow-xs'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1.5">
+                      <span className={`text-[11px] font-black uppercase tracking-wider ${isSelected ? 'text-[#EA7600]' : 'text-slate-500'}`}>
+                        Eixo {axis.number}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        {remaining} vagas disponíveis
+                      </span>
+                    </div>
+                    <h4 className="font-extrabold text-xs text-[#001B44] leading-snug mb-2">
+                      {axis.title}
+                    </h4>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      {axis.description}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 font-medium">Ordem de inscrição:</span>
+                    <span className="font-bold text-[#001B44]">
+                      {count >= axis.maxSlots ? 'Lista de Espera' : `Vaga #${count + 1} de 12`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Modalidade de Apresentação (Item 7.3) */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+            Modalidade de Apresentação <span className="text-[#EA7600]">*</span>
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Modalidade 1: Relato de Experiência */}
+            <div
+              onClick={() => setModality('RELATO_EXPERIENCIA')}
+              className={`p-4 rounded-xl border-2 transition cursor-pointer flex items-start gap-3 ${
+                modality === 'RELATO_EXPERIENCIA'
+                  ? 'border-[#3498FE] bg-sky-50/50 shadow-xs'
+                  : 'border-slate-200 hover:border-slate-300 bg-white'
+              }`}
+            >
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                modality === 'RELATO_EXPERIENCIA' ? 'bg-[#3498FE] text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-bold text-xs sm:text-sm text-[#001B44] block">
+                  Relato de Experiência (Apresentação Oral)
+                </span>
+                <span className="text-xs text-slate-600 block mt-0.5">
+                  Roteiro de até 1.000 palavras orientado pelo <strong>Anexo A</strong>. Apresentação presencial na oficina.
+                </span>
+              </div>
+            </div>
+
+            {/* Modalidade 2: Produção Artística */}
+            <div
+              onClick={() => setModality('PRODUCAO_ARTISTICA')}
+              className={`p-4 rounded-xl border-2 transition cursor-pointer flex items-start gap-3 ${
+                modality === 'PRODUCAO_ARTISTICA'
+                  ? 'border-[#EA7600] bg-orange-50/40 shadow-xs'
+                  : 'border-slate-200 hover:border-slate-300 bg-white'
+              }`}
+            >
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                modality === 'PRODUCAO_ARTISTICA' ? 'bg-[#EA7600] text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                <Palette className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-bold text-xs sm:text-sm text-[#001B44] block">
+                  Produção Artística
+                </span>
+                <span className="text-xs text-slate-600 block mt-0.5">
+                  Fotografia, texto literário, cordel, poesia ou outra manifestação artística conforme o <strong>Anexo B</strong>.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Período de Desenvolvimento & Título */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-1">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Ano de Realização <span className="text-[#EA7600]">*</span>
+            </label>
+            <select
+              value={developmentPeriod}
+              onChange={(e) => setDevelopmentPeriod(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+            >
+              <option value="2026">2026 (Ano corrente)</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+              <option value="2023-2026">Período Contínuo (2023 a 2026)</option>
+            </select>
+            <span className="text-[11px] text-slate-500 mt-1 block">
+              Item 7.2: entre 2023 e 2026.
+            </span>
+          </div>
+
+          <div className="md:col-span-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Título do Trabalho <span className="text-[#EA7600]">*</span>
+              </label>
+              <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                titleStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {titleStatus.count} / {titleStatus.max} palavras
+              </span>
+            </div>
+            <input
+              type="text"
+              required
+              placeholder="Ex: Implantação do Núcleo de Segurança do Paciente na Atenção Primária..."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className={`w-full px-4 py-2.5 rounded-xl border text-sm text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 ${
+                titleStatus.isOver 
+                  ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500' 
+                  : 'border-slate-200 focus:ring-[#3498FE]/20 focus:border-[#3498FE]'
+              }`}
+            />
+            {titleStatus.isOver && (
+              <p className="mt-1 text-xs text-rose-600 font-semibold flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                Limite excedido: o título deve conter no máximo 15 palavras.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* STEP 2: AUTORES E COAUTORES (ITEM 7.6 & 7.7.b,c) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-[#001B44] text-white flex items-center justify-center text-xs font-extrabold">
+              2
+            </span>
+            <div>
+              <h3 className="text-sm sm:text-base font-extrabold text-[#001B44]">
+                Autoria do Trabalho (Item 7.6)
+              </h3>
+              <p className="text-xs text-slate-500">
+                Até 8 autores no total (1 autor/a principal + até 7 coautores/as).
+              </p>
+            </div>
+          </div>
+
+          <div className="text-xs font-bold text-[#001B44] bg-sky-50 px-3 py-1 rounded-lg border border-[#3498FE]/30 shrink-0">
+            Total de Autores: {1 + coAuthors.length} / 8
+          </div>
+        </div>
+
+        {/* Lembrete de Elegibilidade (Item 7.1) */}
+        {mainAuthorIsStudentOrResident && (
+          <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+            hasLinkedProfessional 
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+              : 'bg-amber-50 border-amber-300 text-amber-900'
+          }`}>
+            <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${hasLinkedProfessional ? 'text-emerald-600' : 'text-[#EA7600]'}`} />
+            <div>
+              <strong>Regra de Elegibilidade (Item 7.1):</strong> Residentes e estudantes participam como autores/as ou coautores/as, <em>desde que o trabalho tenha ao menos um/a profissional ou gestor/a vinculado/a à Rede de Saúde do Recife</em>.
+              {hasLinkedProfessional ? (
+                <span className="block mt-1 font-bold text-emerald-700">✓ Requisito atendido: há profissional/gestor vinculado no trabalho.</span>
+              ) : (
+                <span className="block mt-1 font-bold text-amber-800">⚠️ Adicione ao menos um coautor com perfil de Profissional / Gestor da Rede SUS Recife abaixo.</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Autor Principal */}
+        <div className="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-[#001B44] flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-[#EA7600]" />
+              Autor(a) Principal (Responsável pela Submissão)
+            </span>
+            <span className="text-[11px] font-bold text-slate-500 bg-white px-2.5 py-0.5 rounded border border-slate-200">
+              Autor 1 de {1 + coAuthors.length}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+            {/* Nome Completo */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Nome Completo <span className="text-[#EA7600]">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Nome completo do autor principal"
+                value={mainAuthor.fullName}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, fullName: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              />
+            </div>
+
+            {/* CPF */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                CPF <span className="text-[#EA7600]">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="000.000.000-00"
+                maxLength={14}
+                value={mainAuthor.cpf}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, cpf: formatCPF(e.target.value) })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              />
+            </div>
+
+            {/* E-mail */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                E-mail <span className="text-[#EA7600]">*</span>
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="email@recife.pe.gov.br"
+                value={mainAuthor.email}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, email: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              />
+            </div>
+
+            {/* Telefone / WhatsApp */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Telefone / WhatsApp <span className="text-[#EA7600]">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                placeholder="(81) 90000-0000"
+                value={mainAuthor.phone}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, phone: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              />
+            </div>
+
+            {/* Matrícula SESAU (se houver) */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Matrícula SESAU <span className="text-slate-400 font-normal lowercase">(quando houver)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: 123456-7"
+                value={mainAuthor.sesauMatricula || ''}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, sesauMatricula: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              />
+            </div>
+
+            {/* Perfil de Elegibilidade */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Perfil de Atuação <span className="text-[#EA7600]">*</span>
+              </label>
+              <select
+                value={mainAuthor.authorType}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, authorType: e.target.value as any })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              >
+                <option value="PROFISSIONAL_GESTOR">Trabalhador(a) da Assistência ou Gestão SUS</option>
+                <option value="RESIDENTE">Profissional Residente</option>
+                <option value="ESTUDANTE">Estudante de Graduação em Saúde</option>
+              </select>
+            </div>
+
+            {/* Formação Profissional */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Formação Profissional <span className="text-[#EA7600]">*</span>
+              </label>
+              <select
+                required
+                value={mainAuthor.professionalBackground}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, professionalBackground: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              >
+                <option value="">Selecione sua formação...</option>
+                {PROFESSIONAL_BACKGROUND_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Cargo ou Função */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Cargo / Função <span className="text-[#EA7600]">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Enfermeiro NSP, Médico, Residente, etc."
+                value={mainAuthor.roleOrFunction}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, roleOrFunction: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              />
+            </div>
+
+            {/* Local de Atuação e Unidade CNES */}
+            <div className="sm:col-span-2 md:col-span-3">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Local de Atuação (Unidade de Saúde, Serviço ou Gestão) <span className="text-[#EA7600]">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowCnesList(!showCnesList)}
+                  className="text-[11px] font-bold text-[#001B44] hover:text-[#EA7600] cursor-pointer"
+                >
+                  {showCnesList ? 'Ocultar Lista CNES' : 'Selecionar de Unidade CNES Oficial'}
+                </button>
+              </div>
+
+              {showCnesList && (
+                <div className="mb-2 p-2.5 rounded-lg bg-sky-50 border border-sky-200">
+                  <span className="text-[11px] font-bold text-[#001B44] block mb-1">
+                    Unidades Municipais Convocadas com NSP (Conforme CNES):
+                  </span>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setMainAuthor({
+                          ...mainAuthor,
+                          workLocation: e.target.value,
+                          cnesUnit: e.target.value
+                        });
+                      }
+                    }}
+                    className="w-full p-2 text-xs bg-white rounded border border-slate-300 font-mono"
+                  >
+                    <option value="">Clique para preencher automaticamente com uma das 19 unidades...</option>
+                    {CNES_HEALTH_UNITS.slice(0, 19).map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <input
+                type="text"
+                required
+                placeholder="Ex: US 159 POLICLINICA AGAMENON MAGALHAES, USF Vila Santa Luzia, Distrito Sanitário III..."
+                value={mainAuthor.workLocation}
+                onChange={(e) => setMainAuthor({ ...mainAuthor, workLocation: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Coautores Adicionados */}
+        {coAuthors.map((co, index) => (
+          <div key={co.id} className="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-[#001B44] flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-[#3498FE]" />
+                Coautor(a) #{index + 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleRemoveCoAuthor(index)}
+                className="text-xs font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-rose-50 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Remover Coautor
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Nome Completo <span className="text-[#EA7600]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Nome do coautor"
+                  value={co.fullName}
+                  onChange={(e) => handleUpdateCoAuthor(index, { fullName: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  CPF <span className="text-[#EA7600]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                  value={co.cpf}
+                  onChange={(e) => handleUpdateCoAuthor(index, { cpf: formatCPF(e.target.value) })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  E-mail <span className="text-[#EA7600]">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="email@exemplo.com"
+                  value={co.email}
+                  onChange={(e) => handleUpdateCoAuthor(index, { email: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Telefone / WhatsApp <span className="text-[#EA7600]">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="(81) 90000-0000"
+                  value={co.phone}
+                  onChange={(e) => handleUpdateCoAuthor(index, { phone: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Perfil de Atuação <span className="text-[#EA7600]">*</span>
+                </label>
+                <select
+                  value={co.authorType}
+                  onChange={(e) => handleUpdateCoAuthor(index, { authorType: e.target.value as any })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                >
+                  <option value="PROFISSIONAL_GESTOR">Trabalhador(a) da Assistência ou Gestão SUS</option>
+                  <option value="RESIDENTE">Profissional Residente</option>
+                  <option value="ESTUDANTE">Estudante de Graduação em Saúde</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Formação Profissional <span className="text-[#EA7600]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Medicina, Enfermagem..."
+                  value={co.professionalBackground}
+                  onChange={(e) => handleUpdateCoAuthor(index, { professionalBackground: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Cargo / Função <span className="text-[#EA7600]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Médico Preceptor, Residente, etc."
+                  value={co.roleOrFunction}
+                  onChange={(e) => handleUpdateCoAuthor(index, { roleOrFunction: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Local de Atuação / Unidade <span className="text-[#EA7600]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Hospital Helena Moura, Policlínica Pina..."
+                  value={co.workLocation}
+                  onChange={(e) => handleUpdateCoAuthor(index, { workLocation: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Botão Adicionar Coautor (limite 7 coautores = 8 autores totais) */}
+        {coAuthors.length < 7 && (
+          <button
+            type="button"
+            onClick={handleAddCoAuthor}
+            className="w-full py-2.5 px-4 rounded-xl border-2 border-dashed border-[#001B44]/20 hover:border-[#EA7600] hover:bg-orange-50/30 text-[#001B44] text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-[#EA7600]" />
+            Adicionar Coautor/a ({coAuthors.length + 1} de até 7 coautores)
+          </button>
+        )}
+      </div>
+
+      {/* STEP 3: ROTEIRO ESTRUTURADO (ANEXO A ou ANEXO B) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-[#001B44] text-white flex items-center justify-center text-xs font-extrabold">
+              3
+            </span>
+            <div>
+              <h3 className="text-sm sm:text-base font-extrabold text-[#001B44]">
+                {modality === 'RELATO_EXPERIENCIA' 
+                  ? 'ANEXO A – Roteiro para Relatos de Experiência (Apresentação Oral)' 
+                  : 'ANEXO B – Roteiro para Produções Artísticas'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {modality === 'RELATO_EXPERIENCIA' 
+                  ? 'Preencha cada campo respeitando os limites de palavras. Total máximo: 1.000 palavras.'
+                  : 'Descreva a produção artística e anexe o arquivo com as especificações técnicas.'}
+              </p>
+            </div>
+          </div>
+
+          {modality === 'RELATO_EXPERIENCIA' && (
+            <div className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border shrink-0 ${
+              isReportTotalOver 
+                ? 'bg-rose-100 text-rose-800 border-rose-300' 
+                : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+            }`}>
+              Total: {totalReportWords} / 1.000 palavras
+            </div>
+          )}
+        </div>
+
+        {/* MODALIDADE 1: RELATO DE EXPERIÊNCIA (ANEXO A) */}
+        {modality === 'RELATO_EXPERIENCIA' && (
+          <div className="space-y-5">
+            {/* Campo 1 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-[#001B44]">
+                  1. O que foi realizado e por quê? <span className="text-[#EA7600]">*</span>
+                </label>
+                <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                  whatWhyStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  {whatWhyStatus.count} / {whatWhyStatus.max} palavras
+                </span>
+              </div>
+              <textarea
+                required
+                rows={3}
+                placeholder="Descreva a ação ou projeto desenvolvido e a justificativa/motivação no serviço..."
+                value={reportWhatWhy}
+                onChange={(e) => setReportWhatWhy(e.target.value)}
+                className={`w-full p-3 rounded-xl border text-sm text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 ${
+                  whatWhyStatus.isOver ? 'border-rose-400 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-[#3498FE]/20 focus:border-[#3498FE]'
+                }`}
+              />
+            </div>
+
+            {/* Campo 2 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-[#001B44]">
+                  2. Como foi desenvolvida a experiência? <span className="text-[#EA7600]">*</span>
+                </label>
+                <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                  howDevelopedStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  {howDevelopedStatus.count} / {howDevelopedStatus.max} palavras
+                </span>
+              </div>
+              <textarea
+                required
+                rows={4}
+                placeholder="Apresente os métodos, etapas, articulações com a equipe e ferramentas utilizadas..."
+                value={reportHowDeveloped}
+                onChange={(e) => setReportHowDeveloped(e.target.value)}
+                className={`w-full p-3 rounded-xl border text-sm text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 ${
+                  howDevelopedStatus.isOver ? 'border-rose-400 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-[#3498FE]/20 focus:border-[#3498FE]'
+                }`}
+              />
+            </div>
+
+            {/* Campo 3 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-[#001B44]">
+                  3. O que você e a sua equipe aprenderam com essa experiência? <span className="text-[#EA7600]">*</span>
+                </label>
+                <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                  whatLearnedStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  {whatLearnedStatus.count} / {whatLearnedStatus.max} palavras
+                </span>
+              </div>
+              <textarea
+                required
+                rows={3}
+                placeholder="Destaque as principais lições aprendidas, mudanças na cultura de segurança e impactos..."
+                value={reportWhatLearned}
+                onChange={(e) => setReportWhatLearned(e.target.value)}
+                className={`w-full p-3 rounded-xl border text-sm text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 ${
+                  whatLearnedStatus.isOver ? 'border-rose-400 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-[#3498FE]/20 focus:border-[#3498FE]'
+                }`}
+              />
+            </div>
+
+            {/* Campo 4, 5, 6 em grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Campo 4 */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-[#001B44]">
+                    4. Desafios encontrados <span className="text-[#EA7600]">*</span>
+                  </label>
+                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                    challengesStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {challengesStatus.count} / 100
+                  </span>
+                </div>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Que desafios foram encontrados para o seu desenvolvimento?"
+                  value={reportChallenges}
+                  onChange={(e) => setReportChallenges(e.target.value)}
+                  className={`w-full p-2.5 rounded-xl border text-xs text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 ${
+                    challengesStatus.isOver ? 'border-rose-400' : 'border-slate-200 focus:ring-[#3498FE]/20'
+                  }`}
+                />
+              </div>
+
+              {/* Campo 5 */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-[#001B44]">
+                    5. O que mais e menos gostou <span className="text-[#EA7600]">*</span>
+                  </label>
+                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                    likedDislikedStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {likedDislikedStatus.count} / 100
+                  </span>
+                </div>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="O que você mais gostou e o que não gostou da experiência desenvolvida?"
+                  value={reportLikedDisliked}
+                  onChange={(e) => setReportLikedDisliked(e.target.value)}
+                  className={`w-full p-2.5 rounded-xl border text-xs text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 ${
+                    likedDislikedStatus.isOver ? 'border-rose-400' : 'border-slate-200 focus:ring-[#3498FE]/20'
+                  }`}
+                />
+              </div>
+
+              {/* Campo 6 */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-[#001B44]">
+                    6. O que ainda pode ser feito <span className="text-[#EA7600]">*</span>
+                  </label>
+                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                    whatCanBeDoneStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {whatCanBeDoneStatus.count} / 100
+                  </span>
+                </div>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Pensando no que foi descrito, o que mais ainda pode ser feito?"
+                  value={reportWhatCanBeDone}
+                  onChange={(e) => setReportWhatCanBeDone(e.target.value)}
+                  className={`w-full p-2.5 rounded-xl border text-xs text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 ${
+                    whatCanBeDoneStatus.isOver ? 'border-rose-400' : 'border-slate-200 focus:ring-[#3498FE]/20'
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Upload Complementar de Arquivo do Relato (Item 7.7.a) */}
+            <div className="pt-3 border-t border-slate-100">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Anexo do Relato de Experiência (DOCX ou PDF) <span className="text-slate-400 lowercase">(opcional)</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="file"
+                  id="file-relato"
+                  accept=".pdf,.docx,.doc"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="file-relato"
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-[#001B44] bg-slate-50 hover:bg-slate-100 transition cursor-pointer flex items-center gap-2"
+                >
+                  <Upload className="w-3.5 h-3.5 text-[#3498FE]" />
+                  {attachedFile ? 'Trocar Arquivo Anexado' : 'Selecionar Arquivo DOCX ou PDF'}
+                </label>
+                {attachedFile && (
+                  <span className="text-xs text-slate-600 font-medium">
+                    {attachedFile.name} ({(attachedFile.size / 1024).toFixed(0)} KB)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODALIDADE 2: PRODUÇÃO ARTÍSTICA (ANEXO B) */}
+        {modality === 'PRODUCAO_ARTISTICA' && (
+          <div className="space-y-5">
+            {/* Modalidade da Produção */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Linguagem / Categoria Artística <span className="text-[#EA7600]">*</span>
+                </label>
+                <select
+                  value={artisticCategory}
+                  onChange={(e) => setArtisticCategory(e.target.value as any)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#EA7600]/20 focus:border-[#EA7600]"
+                >
+                  <option value="Fotografia">Fotografia (JPG ou PNG, mín. 1080x1080 px)</option>
+                  <option value="Texto Literário">Texto Literário (DOCX/PDF ou digitado)</option>
+                  <option value="Cordel">Cordel (DOCX/PDF ou digitado)</option>
+                  <option value="Poesia">Poesia (DOCX/PDF ou digitado)</option>
+                  <option value="Outra manifestação artística">Outra manifestação artística</option>
+                </select>
+              </div>
+
+              {artisticCategory === 'Outra manifestação artística' && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Especifique a Manifestação Artística <span className="text-[#EA7600]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Ilustração digital, colagem, paródia, etc."
+                    value={customArtisticCategory}
+                    onChange={(e) => setCustomArtisticCategory(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Contexto de Criação */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-[#001B44]">
+                  Contexto de Criação (Onde, quando e por que foi produzida) <span className="text-[#EA7600]">*</span>
+                </label>
+                <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                  artisticContextStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  {artisticContextStatus.count} / {artisticContextStatus.max} palavras
+                </span>
+              </div>
+              <textarea
+                required
+                rows={3}
+                placeholder="Descreva o contexto no qual a produção foi concebida, local de atuação e relação com a segurança do paciente..."
+                value={artisticCreationContext}
+                onChange={(e) => setArtisticCreationContext(e.target.value)}
+                className={`w-full p-3 rounded-xl border text-sm text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 ${
+                  artisticContextStatus.isOver ? 'border-rose-400' : 'border-slate-200 focus:ring-[#EA7600]/20 focus:border-[#EA7600]'
+                }`}
+              />
+            </div>
+
+            {/* Campo de Texto para Cordel, Poesia ou Texto Literário */}
+            {['Texto Literário', 'Cordel', 'Poesia'].includes(artisticCategory) && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-[#001B44]">
+                    Conteúdo do Texto / Cordel / Poesia <span className="text-slate-400 font-normal lowercase">(ou anexe arquivo abaixo)</span>
+                  </label>
+                  <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                    artisticTextStatus.isOver ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {artisticTextStatus.count} / {artisticTextStatus.max} palavras
+                  </span>
+                </div>
+                <textarea
+                  rows={5}
+                  placeholder="Digite ou cole aqui os versos do cordel, poesia ou narrativa textual..."
+                  value={artisticTextContent}
+                  onChange={(e) => setArtisticTextContent(e.target.value)}
+                  className={`w-full p-3 rounded-xl border text-sm text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 font-serif ${
+                    artisticTextStatus.isOver ? 'border-rose-400' : 'border-slate-200 focus:ring-[#EA7600]/20'
+                  }`}
+                />
+              </div>
+            )}
+
+            {/* Upload de Arquivo com Validação de Fotografia (1080x1080 px) */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#001B44] block">
+                Arquivo da Produção Artística (Item 7.7.e) <span className="text-[#EA7600]">*</span>
+              </span>
+
+              {artisticCategory === 'Fotografia' ? (
+                <div>
+                  <p className="text-xs text-slate-600 mb-2">
+                    Fotografias devem estar no formato <strong>JPG ou PNG</strong>, com <strong>resolução mínima de 1080x1080 px</strong>.
+                  </p>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <input
+                      type="file"
+                      id="file-artistic-photo"
+                      accept="image/jpeg,image/png,image/jpg"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="file-artistic-photo"
+                      className="px-4 py-2.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      {attachedFile ? 'Substituir Fotografia' : 'Carregar Fotografia (JPG/PNG)'}
+                    </label>
+
+                    {attachedFile?.previewUrl && (
+                      <div className="flex items-center gap-2 text-xs text-slate-700 bg-white p-2 rounded-lg border border-slate-200">
+                        <img 
+                          src={attachedFile.previewUrl} 
+                          alt="Preview" 
+                          className="w-12 h-12 object-cover rounded-md border border-slate-200 shrink-0" 
+                        />
+                        <div>
+                          <span className="font-bold block truncate max-w-xs">{attachedFile.name}</span>
+                          <span className="text-[11px] text-slate-500 font-mono">
+                            {attachedFile.dimensions ? `${attachedFile.dimensions.width}x${attachedFile.dimensions.height} px • ` : ''}
+                            {(attachedFile.size / 1024).toFixed(0)} KB
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {photoError && (
+                    <div className="mt-2 text-xs text-rose-600 font-semibold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      {photoError}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-slate-600 mb-2">
+                    Anexe o arquivo em formato <strong>DOCX ou PDF</strong> (textos, cordéis, poesias ou registro visual).
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      id="file-artistic-doc"
+                      accept=".pdf,.docx,.doc"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="file-artistic-doc"
+                      className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-[#001B44] bg-white hover:bg-slate-100 transition cursor-pointer flex items-center gap-2"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-[#EA7600]" />
+                      {attachedFile ? 'Substituir Arquivo' : 'Carregar Arquivo DOCX ou PDF'}
+                    </label>
+                    {attachedFile && (
+                      <span className="text-xs text-slate-600 font-medium">
+                        {attachedFile.name} ({(attachedFile.size / 1024).toFixed(0)} KB)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* STEP 4: ACESSIBILIDADE E TERMOS DE ENVIO */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-5">
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <span className="w-7 h-7 rounded-lg bg-[#001B44] text-white flex items-center justify-center text-xs font-extrabold">
+            4
+          </span>
+          <div>
+            <h3 className="text-sm sm:text-base font-extrabold text-[#001B44]">
+              Acessibilidade e Declaração de Autoria
+            </h3>
+            <p className="text-xs text-slate-500">
+              Condições para a apresentação presencial no Auditório da Interne (Recife/PE).
+            </p>
+          </div>
+        </div>
+
+        {/* Acessibilidade */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            Necessidade de Acessibilidade no Local Presencial
+          </label>
+          <select
+            value={accessibilityNeed}
+            onChange={(e) => setAccessibilityNeed(e.target.value)}
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+          >
+            {ACCESSIBILITY_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Declaração de Autoria e Termos */}
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              required
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-slate-300 text-[#EA7600] focus:ring-[#EA7600]"
+            />
+            <span className="text-xs text-slate-700 leading-relaxed">
+              Declaro que as informações prestadas são verídicas, que o trabalho foi desenvolvido no âmbito da Rede SUS Recife entre 2023 e 2026, e que todos os/as autores/as listados participaram da sua elaboração, estando cientes das normas do Item 7 do Edital do I Fórum Municipal de Qualidade e Segurança do Paciente.
+            </span>
+          </label>
+        </div>
+
+        {/* Botão de Submissão */}
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-xs text-slate-500">
+            Após a submissão, um <strong>protocolo oficial de inscrição</strong> será gerado para impressão e acompanhamento.
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] disabled:bg-slate-400 text-white font-extrabold text-sm shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Registrando Submissão...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                Submeter Trabalho na Oficina
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+};
