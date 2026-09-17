@@ -61,10 +61,19 @@ export const ProgramacaoModal: React.FC<ProgramacaoModalProps> = ({ isOpen, onCl
                 <h4 className="text-sm font-bold text-slate-900 leading-snug">
                   {item.title}
                 </h4>
-                <div className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span><strong>{item.speaker}</strong> — {item.role}</span>
-                </div>
+                {item.speaker && (
+                  <div className="text-xs text-slate-700 mt-2 p-2.5 rounded-lg bg-sky-50/80 border border-[#3498FE]/30 flex items-start gap-2">
+                    <Users className="w-4 h-4 text-[#3498FE] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-[#001B44]">PALESTRANTE: {item.speaker}</span>
+                      {item.role && (
+                        <p className="text-slate-600 text-xs mt-0.5 leading-relaxed">
+                          {item.role}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

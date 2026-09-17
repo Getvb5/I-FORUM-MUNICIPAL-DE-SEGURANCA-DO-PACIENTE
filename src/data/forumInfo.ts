@@ -155,59 +155,70 @@ export const ACCESSIBILITY_OPTIONS = [
 
 export const FORUM_PROGRAM: ForumProgramItem[] = [
   {
-    time: '08h00 - 08h45',
-    title: 'Credenciamento Presencial, Recepção dos Participantes e Welcome Coffee',
-    speaker: 'Comissão Organizadora NMSPR / ESR / SEGTES',
-    role: 'Secretaria e Acolhimento',
-    category: 'Abertura Oficial'
+    time: '8h00 – 8h30',
+    title: 'Credenciamento e acolhimento',
+    category: 'Credenciamento'
   },
   {
-    time: '08h45 - 09h30',
-    title: 'Mesa de Abertura Institucional: O Fortalecimento da Qualidade e Segurança do Paciente na Rede SUS Recife',
-    speaker: 'SESAU, SERMAC, SEAB, SEGTES, ESR e Coordenação do NMSPR',
-    role: 'Abertura Solene',
-    category: 'Abertura Oficial'
+    time: '8h30 – 9h00',
+    title: 'Mesa de abertura e apresentação da Campanha Mundial da Segurança do Paciente 2026',
+    category: 'Mesa de Abertura'
   },
   {
-    time: '09h30 - 10h45',
-    title: 'Conferência Magna: Cultura de Segurança Justa e o Papel Estratégico dos Núcleos de Segurança do Paciente (NSP)',
-    speaker: 'Especialista Convidado de Referência em Gestão da Qualidade e Segurança em Saúde',
-    role: 'Palestrante Convidado',
-    category: 'Conferência Magna'
+    time: '9h00 – 9h50',
+    title: 'Palestra 1 (Atenção Básica): Condições crônicas e segurança do paciente: organização do cuidado contínuo, integrado e centrado na pessoa',
+    category: 'Palestra 1'
   },
   {
-    time: '11h00 - 12h30',
-    title: 'Mesa Redonda: Integração da Gestão e Assistência — Práticas Seguras da Atenção Primária à Média e Alta Complexidade',
-    speaker: 'Representantes dos Núcleos de Segurança do Paciente (NSP) da Atenção Básica, Policlínicas e Hospitais Municipais',
-    role: 'Painelistas Técnicos',
-    category: 'Mesa Redonda'
+    time: '9h50 – 10h10',
+    title: 'Debate',
+    category: 'Debate'
   },
   {
-    time: '12h30 - 14h00',
-    title: 'Intervalo de Almoço Livre',
-    speaker: 'Todos os Participantes',
-    role: 'Intervalo',
-    category: 'Painel Temático'
+    time: '10h10 – 10h30',
+    title: 'Intervalo',
+    category: 'Intervalo'
   },
   {
-    time: '14h00 - 15h30',
-    title: 'Painel Interativo: Notificação de Incidentes, Gestão de Riscos e Aprendizado Contínuo sem Punição',
-    speaker: 'Equipe Técnica NMSPR - SERMAC/SEAB e Vigilância Sanitária Municipal',
-    role: 'Apresentação e Discussão Prática',
-    category: 'Painel Temático'
+    time: '10h30 – 11h20',
+    title: 'Palestra 2 (Saúde da Pessoa Idosa): Envelhecimento com cuidado seguro: prevenção de eventos adversos no acompanhamento das condições crônicas',
+    speaker: 'Bárbara Letícia de Castro Silva',
+    role: 'Psicóloga, Especialista em Saúde da Família e em Psicologia Hospitalar e da Saúde. / Atualmente na Coordenação de Saúde da Pessoa Idosa do Recife',
+    category: 'Palestra 2'
   },
   {
-    time: '15h30 - 16h45',
-    title: 'Mesa Redonda: O Envolvimento do Residente, Estudante e Profissional da Ponta na Transformação do Cuidado Seguro',
-    speaker: 'Comissão de Residência, Representantes dos Estudantes da Saúde e Equipes Assistenciais do SUS Recife',
-    role: 'Debatedores',
-    category: 'Mesa Redonda'
+    time: '11h20 – 11h40',
+    title: 'Debate',
+    category: 'Debate'
   },
   {
-    time: '16h45 - 17h00',
-    title: 'Pactuações Municipais, Encerramento e Orientações para Emissão de Certificado de 8 Horas',
-    speaker: 'Núcleo Municipal de Segurança do Paciente (NMSPR) e Escola de Saúde do Recife (ESR)',
-    role: 'Encerramento Oficial',
-    category: 'Encerramento'
+    time: '12h00 – 13h00',
+    title: 'Intervalo para almoço',
+    category: 'Almoço'
+  },
+  {
+    time: '13h00 – 13h40',
+    title: 'Palestra 3 (Média e Alta Complexidade): Segurança do paciente com condições crônicas na atenção especializada e hospitalar: riscos, transições e continuidade do cuidado',
+    category: 'Palestra 3'
+  },
+  {
+    time: '13h40 – 14h00',
+    title: 'Debate',
+    category: 'Debate'
+  },
+  {
+    time: '14h00 – 16h00',
+    title: 'Oficina Formativa em Compartilhamento de Experiências Exitosas (3 salas simultâneas, uma por eixo)',
+    category: 'Oficina Formativa'
+  },
+  {
+    time: '16h00 – 16h30',
+    title: 'Apuração das avaliações e preparação do encerramento',
+    category: 'Apuração'
+  },
+  {
+    time: '16h30 – 17h00',
+    title: 'Encerramento e premiação',
+    category: 'Encerramento e Premiação'
   }
 ];

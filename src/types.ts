@@ -100,9 +100,9 @@ export interface RegistrationData {
 export interface ForumProgramItem {
   time: string;
   title: string;
-  speaker: string;
-  role: string;
-  category: 'Conferência Magna' | 'Mesa Redonda' | 'Painel Temático' | 'Abertura Oficial' | 'Encerramento';
+  speaker?: string;
+  role?: string;
+  category?: string;
 }
 
 export interface AdminUser {
