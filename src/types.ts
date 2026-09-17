@@ -105,3 +105,14 @@ export interface ForumProgramItem {
   category: 'Conferência Magna' | 'Mesa Redonda' | 'Painel Temático' | 'Abertura Oficial' | 'Encerramento';
 }
 
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'COMISSAO_ORGANIZADORA' | 'AVALIADOR_CIENTIFICO' | 'GESTOR_SESAU';
+  roleTitle: string;
+  organization: string;
+  avatarInitials: string;
+}
+
+

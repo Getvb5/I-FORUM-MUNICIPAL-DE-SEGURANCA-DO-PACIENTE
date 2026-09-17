@@ -9,13 +9,15 @@ interface ConsultSubmissionModalProps {
   onClose: () => void;
   submissions: WorkSubmissionData[];
   onSelectSubmission: (submission: WorkSubmissionData) => void;
+  onOpenDashboard?: () => void;
 }
 
 export const ConsultSubmissionModal: React.FC<ConsultSubmissionModalProps> = ({
   isOpen,
   onClose,
   submissions,
-  onSelectSubmission
+  onSelectSubmission,
+  onOpenDashboard
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
@@ -170,9 +172,23 @@ export const ConsultSubmissionModal: React.FC<ConsultSubmissionModalProps> = ({
             </div>
           )}
 
-          {/* Quick info on limits */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 leading-relaxed">
-            <strong>Lembrete de Limites (Item 7.6):</strong> Cada participante pode inscrever no máximo 2 trabalhos como autor/a principal e figurar em até 5 como coautor/a.
+          {/* Quick info on limits & link to dashboard */}
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 leading-relaxed flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <strong>Lembrete de Limites (Item 7.6):</strong> Cada participante pode inscrever no máximo 2 trabalhos como autor/a principal e figurar em até 5 como coautor/a.
+            </div>
+            {onOpenDashboard && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenDashboard();
+                }}
+                className="text-xs font-bold text-[#EA7600] hover:underline whitespace-nowrap cursor-pointer shrink-0"
+              >
+                Abrir Painel Geral de Trabalhos →
+              </button>
+            )}
           </div>
         </div>
       </div>

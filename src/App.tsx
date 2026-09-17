@@ -3,172 +3,44 @@ import { Header } from './components/Header';
 import { EventVisualBanner } from './components/EventVisualBanner';
 import { SubmissionForm } from './components/SubmissionForm';
 import { SubmissionSuccess } from './components/SubmissionSuccess';
+import { SubmissionsDashboard } from './components/SubmissionsDashboard';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { RulesEditalModal } from './components/RulesEditalModal';
 import { ConsultSubmissionModal } from './components/ConsultSubmissionModal';
 import { ProgramacaoModal } from './components/ProgramacaoModal';
 import { Footer } from './components/Footer';
-import { WorkSubmissionData } from './types';
+import { WorkSubmissionData, AdminUser } from './types';
+import { getCurrentAdmin, logoutAdmin } from './utils/authService';
+import { FileEdit, FolderKanban, PlusCircle, Lock, ShieldAlert, Search } from 'lucide-react';
 
 const SUBMISSIONS_STORAGE_KEY = 'sesau_recife_forum_submissions_2026';
 
-// Seed sample initial submissions to demonstrate axis distribution and consultation
-const INITIAL_SAMPLE_SUBMISSIONS: WorkSubmissionData[] = [
-  {
-    id: 'sub_seed_1',
-    protocolNumber: 'SUB-NMSPR-2026-E1-001',
-    submittedAt: '2026-09-10T14:30:00.000Z',
-    thematicAxis: 'EIXO_1',
-    thematicAxisLabel: 'Eixo 1 – Segurança do Paciente e Gestão de Riscos nos Serviços de Saúde do Recife',
-    modality: 'RELATO_EXPERIENCIA',
-    title: 'Implantação da Notificação Ativa de Quase-Falhas na US 159 Policlínica Agamenon Magalhães',
-    developmentPeriod: '2024',
-    mainAuthor: {
-      id: 'author_seed_1',
-      fullName: 'Dra. Mariana Albuquerque Lima',
-      cpf: '123.456.789-00',
-      email: 'mariana.albuquerque@recife.pe.gov.br',
-      phone: '(81) 98765-4321',
-      sesauMatricula: '384912-1',
-      professionalBackground: 'Enfermagem',
-      roleOrFunction: 'Coordenadora do NSP',
-      workLocation: 'US 159 POLICLINICA AGAMENON MAGALHAES',
-      cnesUnit: 'US 159 POLICLINICA AGAMENON MAGALHAES',
-      authorType: 'PROFISSIONAL_GESTOR',
-      isMainAuthor: true
-    },
-    coAuthors: [
-      {
-        id: 'co_seed_1_1',
-        fullName: 'Carlos Eduardo Mendes',
-        cpf: '234.567.890-11',
-        email: 'carlos.mendes@recife.pe.gov.br',
-        phone: '(81) 99123-4567',
-        sesauMatricula: '401293-2',
-        professionalBackground: 'Medicina',
-        roleOrFunction: 'Médico Clínico',
-        workLocation: 'US 159 POLICLINICA AGAMENON MAGALHAES',
-        cnesUnit: 'US 159 POLICLINICA AGAMENON MAGALHAES',
-        authorType: 'PROFISSIONAL_GESTOR',
-        isMainAuthor: false
-      }
-    ],
-    experienceReport: {
-      whatAndWhy: 'Implementamos a cultura de notificação anônima e sem caráter punitivo para eventos adversos e quase-falhas no ambulatório e emergência da policlínica.',
-      howDeveloped: 'Realizamos oficinas mensais com as equipes multiprofissionais, fluxogramas de resposta rápida e painéis de monitoramento nos postos de enfermagem.',
-      whatLearned: 'A adesão às notificações aumentou em 140% no primeiro semestre após a desmistificação do erro como falha processual e não individual.',
-      challenges: 'Superar o receio inicial de punição e padronizar o preenchimento entre diferentes turnos.',
-      likedAndDisliked: 'Destacou-se o engajamento dos técnicos; a infraestrutura física de informática ainda exige melhorias.',
-      whatCanBeDone: 'Expandir o modelo de rondas de segurança para todas as salas de medicação e imunização.'
-    },
-    status: 'SUBMETIDO',
-    slotOrder: 1,
-    accessibilityNeed: 'Nenhuma'
-  },
-  {
-    id: 'sub_seed_2',
-    protocolNumber: 'SUB-NMSPR-2026-E2-002',
-    submittedAt: '2026-09-12T09:15:00.000Z',
-    thematicAxis: 'EIXO_2',
-    thematicAxisLabel: 'Eixo 2 – Educação Permanente, Pesquisa e Inovação para Qualidade do Cuidado',
-    modality: 'RELATO_EXPERIENCIA',
-    title: 'Simulação Realística na Prevenção de Quedas Pediátricas no Hospital Helena Moura',
-    developmentPeriod: '2025',
-    mainAuthor: {
-      id: 'author_seed_2',
-      fullName: 'Beatriz Cristina Rocha',
-      cpf: '345.678.901-22',
-      email: 'beatriz.rocha@recife.pe.gov.br',
-      phone: '(81) 98877-6655',
-      sesauMatricula: '512048-3',
-      professionalBackground: 'Fisioterapia',
-      roleOrFunction: 'Preceptora de Residência em Saúde da Criança',
-      workLocation: 'US 163 HOSPITAL DE PEDIATRIA HELENA MOURA',
-      cnesUnit: 'US 163 HOSPITAL DE PEDIATRIA HELENA MOURA',
-      authorType: 'PROFISSIONAL_GESTOR',
-      isMainAuthor: true
-    },
-    coAuthors: [
-      {
-        id: 'co_seed_2_1',
-        fullName: 'Lucas Vasconcelos de Melo',
-        cpf: '456.789.012-33',
-        email: 'lucas.melo@recife.pe.gov.br',
-        phone: '(81) 97766-5544',
-        sesauMatricula: '',
-        professionalBackground: 'Enfermagem',
-        roleOrFunction: 'Residente em Enfermagem Pediátrica',
-        workLocation: 'US 163 HOSPITAL DE PEDIATRIA HELENA MOURA',
-        cnesUnit: 'US 163 HOSPITAL DE PEDIATRIA HELENA MOURA',
-        authorType: 'RESIDENTE',
-        isMainAuthor: false
-      }
-    ],
-    experienceReport: {
-      whatAndWhy: 'Capacitação prática interprofissional sobre protocolos de prevenção de quedas e uso de pulseiras de identificação em leitos de pediatria.',
-      howDeveloped: 'Criamos estações de simulação in situ com cenários reais de internação, envolvendo cuidadores, residentes e equipes de enfermagem.',
-      whatLearned: 'O treinamento prático baseado em vivências acelerou a resposta das equipes e reduziu incidentes a zero no trimestre avaliado.',
-      challenges: 'Conciliar horários de capacitação sem desfalcar as escalas assistenciais ativas.',
-      likedAndDisliked: 'A receptividade das mães acompanhantes foi excepcional; o tempo de preparação dos bonecos foi desafiador.',
-      whatCanBeDone: 'Criar um gibi ilustrado para distribuição às famílias no momento da admissão hospitalar.'
-    },
-    status: 'SUBMETIDO',
-    slotOrder: 1,
-    accessibilityNeed: 'Nenhuma'
-  },
-  {
-    id: 'sub_seed_3',
-    protocolNumber: 'SUB-NMSPR-2026-E3-003',
-    submittedAt: '2026-09-14T16:45:00.000Z',
-    thematicAxis: 'EIXO_3',
-    thematicAxisLabel: 'Eixo 3 – Experiência do Paciente, Comunicação e Cuidado Centrado na Pessoa',
-    modality: 'PRODUCAO_ARTISTICA',
-    title: 'Cordel da Segurança: A Voz do Paciente no SUS do Recife',
-    developmentPeriod: '2024',
-    mainAuthor: {
-      id: 'author_seed_3',
-      fullName: 'Sebastião Vicente de Souza',
-      cpf: '567.890.123-44',
-      email: 'sebastiao.souza@recife.pe.gov.br',
-      phone: '(81) 98111-2233',
-      sesauMatricula: '298711-4',
-      professionalBackground: 'Agente Comunitário de Saúde / Gestão',
-      roleOrFunction: 'Membro do Conselho Local de Saúde',
-      workLocation: 'US 128 POLICLINICA LESSA DE ANDRADE',
-      cnesUnit: 'US 128 POLICLINICA LESSA DE ANDRADE',
-      authorType: 'PROFISSIONAL_GESTOR',
-      isMainAuthor: true
-    },
-    coAuthors: [],
-    artisticProduction: {
-      artisticCategory: 'Cordel',
-      creationContext: 'Produzido em maio de 2024 nas salas de espera da Policlínica Lessa de Andrade para dialogar com os usuários sobre o direito de perguntar sobre sua medicação e identificação.',
-      textContent: `No Recife dos manguezais,\nO cuidado tem valor,\nSegurança do paciente\nÉ dever do servidor,\nPerguntar não ofende,\nE protege com amor!\n\nSeja na Policlínica,\nNo posto ou no hospital,\nConferir o seu nome\nÉ o passo principal,\nPra que o SUS floresça\nCom respeito sem igual!`
-    },
-    status: 'SUBMETIDO',
-    slotOrder: 1,
-    accessibilityNeed: 'Nenhuma'
-  }
-];
-
 export default function App() {
-  const [submissions, setSubmissions] = useState<WorkSubmissionData[]>(INITIAL_SAMPLE_SUBMISSIONS);
+  const [submissions, setSubmissions] = useState<WorkSubmissionData[]>([]);
   const [currentSubmission, setCurrentSubmission] = useState<WorkSubmissionData | null>(null);
+  const [activeView, setActiveView] = useState<'FORM' | 'DASHBOARD'>('FORM');
+  const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(getCurrentAdmin());
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isConsultOpen, setIsConsultOpen] = useState(false);
   const [isProgramOpen, setIsProgramOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
 
-  // Load persistent submissions from localStorage
+  // Load persistent submissions from localStorage (purging demo seeds so all 12 slots are open)
   useEffect(() => {
     try {
       const stored = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setSubmissions(parsed);
+        if (Array.isArray(parsed)) {
+          // Remove mock seeds so all 12 slots remain fully available
+          const realSubmissions = parsed.filter((s: WorkSubmissionData) => !s.id?.startsWith('sub_seed_'));
+          setSubmissions(realSubmissions);
+          localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(realSubmissions));
+          return;
         }
-      } else {
-        localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(INITIAL_SAMPLE_SUBMISSIONS));
       }
+      setSubmissions([]);
+      localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify([]));
     } catch (e) {
       console.warn('Não foi possível carregar as submissões locais:', e);
     }
@@ -193,6 +65,31 @@ export default function App() {
 
   const handleNewSubmission = () => {
     setCurrentSubmission(null);
+    setActiveView('FORM');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenDashboard = () => {
+    if (!currentAdmin) {
+      setIsAdminLoginOpen(true);
+      return;
+    }
+    setCurrentSubmission(null);
+    setActiveView('DASHBOARD');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLoginSuccess = (user: AdminUser) => {
+    setCurrentAdmin(user);
+    setCurrentSubmission(null);
+    setActiveView('DASHBOARD');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLogout = () => {
+    logoutAdmin();
+    setCurrentAdmin(null);
+    setActiveView('FORM');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -203,6 +100,12 @@ export default function App() {
         onOpenConsult={() => setIsConsultOpen(true)}
         onOpenProgram={() => setIsProgramOpen(true)}
         onOpenRules={() => setIsRulesOpen(true)}
+        onOpenDashboard={handleOpenDashboard}
+        onOpenLogin={() => setIsAdminLoginOpen(true)}
+        onLogout={handleLogout}
+        currentAdmin={currentAdmin}
+        submissionCount={submissions.length}
+        activeView={activeView}
       />
 
       {/* Main Container */}
@@ -213,8 +116,76 @@ export default function App() {
             onOpenProgram={() => setIsProgramOpen(true)}
             onOpenConsult={() => setIsConsultOpen(true)}
             onOpenRules={() => setIsRulesOpen(true)}
+            onOpenDashboard={handleOpenDashboard}
             submissionCount={submissions.length}
+            isAdminLoggedIn={currentAdmin !== null}
           />
+        )}
+
+        {/* View Switcher Tabs (Only visible when not viewing single success receipt) */}
+        {!currentSubmission && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-1.5 shadow-2xs mb-6 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 flex-1">
+              <button
+                type="button"
+                onClick={() => setActiveView('FORM')}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  activeView === 'FORM'
+                    ? 'bg-[#001B44] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <FileEdit className="w-4 h-4 text-[#EA7600]" />
+                <span>Formulário de Submissão</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenDashboard}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  activeView === 'DASHBOARD'
+                    ? 'bg-[#001B44] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                {currentAdmin ? (
+                  <>
+                    <FolderKanban className="w-4 h-4 text-[#3498FE]" />
+                    <span>Trabalhos Submetidos</span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                      activeView === 'DASHBOARD' ? 'bg-[#EA7600] text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {submissions.length}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Trabalhos Submetidos (Acesso Restrito)</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 pr-1">
+              <button
+                type="button"
+                onClick={() => setIsConsultOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-[#EA7600] text-[#EA7600] hover:text-white border border-[#EA7600]/30 text-xs font-bold transition cursor-pointer shadow-2xs"
+                title="Consultar comprovante por protocolo ou CPF"
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>Consultar Submissão</span>
+              </button>
+
+              {currentAdmin && (
+                <span className="hidden sm:flex text-emerald-700 font-bold items-center gap-1 text-[11px] bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  {currentAdmin.name}
+                </span>
+              )}
+            </div>
+          </div>
         )}
 
         {currentSubmission ? (
@@ -223,6 +194,38 @@ export default function App() {
             onNewSubmission={handleNewSubmission}
             onOpenConsult={() => setIsConsultOpen(true)}
           />
+        ) : activeView === 'DASHBOARD' ? (
+          currentAdmin ? (
+            <SubmissionsDashboard
+              submissions={submissions}
+              onSelectSubmission={handleSelectSubmission}
+              onNewSubmission={handleNewSubmission}
+              currentAdmin={currentAdmin}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center space-y-4 max-w-lg mx-auto shadow-sm">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 mx-auto flex items-center justify-center">
+                <ShieldAlert className="w-8 h-8 text-[#EA7600]" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-[#001B44] font-display">
+                  Acesso Restrito à Comissão e Avaliadores
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Para proteger os dados pessoais (LGPD), números de CPF, contatos institucionais e conteúdos inéditos dos trabalhos, o acesso à listagem consolidada é protegido por login institucional.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdminLoginOpen(true)}
+                className="px-6 py-2.5 rounded-xl bg-[#001B44] hover:bg-[#0A2D6C] text-white text-xs font-bold transition cursor-pointer shadow-md inline-flex items-center gap-2"
+              >
+                <Lock className="w-3.5 h-3.5 text-[#EA7600]" />
+                Entrar com Login e Senha Institucional
+              </button>
+            </div>
+          )
         ) : (
           <SubmissionForm
             onSubmit={handleSubmissionSubmit}
@@ -233,6 +236,12 @@ export default function App() {
       </main>
 
       {/* Modals */}
+      <AdminLoginModal
+        isOpen={isAdminLoginOpen}
+        onClose={() => setIsAdminLoginOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
       <RulesEditalModal
         isOpen={isRulesOpen}
         onClose={() => setIsRulesOpen(false)}
@@ -243,6 +252,7 @@ export default function App() {
         onClose={() => setIsConsultOpen(false)}
         submissions={submissions}
         onSelectSubmission={handleSelectSubmission}
+        onOpenDashboard={handleOpenDashboard}
       />
 
       <ProgramacaoModal
