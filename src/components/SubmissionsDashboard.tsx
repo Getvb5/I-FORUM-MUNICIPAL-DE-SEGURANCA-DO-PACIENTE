@@ -20,7 +20,9 @@ import {
   Printer,
   Lock,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { WorkSubmissionData, ThematicAxisId, SubmissionModality, AdminUser } from '../types';
 import { THEMATIC_AXES } from '../data/forumInfo';
@@ -31,6 +33,8 @@ interface SubmissionsDashboardProps {
   onNewSubmission: () => void;
   currentAdmin: AdminUser | null;
   onLogout: () => void;
+  onClearAllSubmissions?: () => void;
+  onDeleteSubmission?: (id: string) => void;
 }
 
 export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
@@ -39,11 +43,14 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
   onNewSubmission,
   currentAdmin,
   onLogout,
+  onClearAllSubmissions,
+  onDeleteSubmission,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAxis, setSelectedAxis] = useState<string>('ALL');
   const [selectedModality, setSelectedModality] = useState<string>('ALL');
   const [expandedSubmissionId, setExpandedSubmissionId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Axis stats
   const axisCounts: Record<ThematicAxisId, number> = {
@@ -186,6 +193,18 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {onClearAllSubmissions && submissions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowClearConfirm(true)}
+              className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition flex items-center gap-1.5 border border-rose-200 cursor-pointer"
+              title="Excluir todas as inscrições registradas e zerar o painel"
+            >
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              Zerar Inscrições
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleExportCSV}
@@ -426,6 +445,21 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
                       <Printer className="w-3.5 h-3.5 text-[#EA7600]" />
                       Comprovante
                     </button>
+
+                    {onDeleteSubmission && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Confirma a exclusão definitiva do trabalho "${sub.title}" (Protocolo: ${sub.protocolNumber})?`)) {
+                            onDeleteSubmission(sub.id);
+                          }
+                        }}
+                        className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition cursor-pointer"
+                        title="Excluir este trabalho individualmente"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -552,6 +586,52 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
           })
         )}
       </div>
+
+      {/* Confirmation Modal to Clear All Data */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 bg-[#001B44]/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-black text-[#001B44] font-display">
+                Zerar Todos os Trabalhos?
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Esta ação excluirá permanentemente todos os <strong>{submissions.length}</strong> trabalhos cadastrados até o momento e liberará todas as vagas nos 3 Eixos Temáticos.
+              </p>
+              <p className="text-[11px] font-bold text-rose-600">
+                Esta operação não pode ser desfeita.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowClearConfirm(false);
+                  if (onClearAllSubmissions) {
+                    onClearAllSubmissions();
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                Sim, Zerar Tudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

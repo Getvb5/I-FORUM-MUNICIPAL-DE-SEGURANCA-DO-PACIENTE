@@ -14,6 +14,7 @@ import { getCurrentAdmin, logoutAdmin } from './utils/authService';
 import { FileEdit, FolderKanban, PlusCircle, Lock, ShieldAlert, Search } from 'lucide-react';
 
 const SUBMISSIONS_STORAGE_KEY = 'sesau_recife_forum_submissions_2026';
+const DATA_RESET_KEY = 'sesau_forum_data_zeroed_v1';
 
 export default function App() {
   const [submissions, setSubmissions] = useState<WorkSubmissionData[]>([]);
@@ -25,14 +26,24 @@ export default function App() {
   const [isProgramOpen, setIsProgramOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
 
-  // Load persistent submissions from localStorage (purging demo seeds so all 12 slots are open)
+  // Load persistent submissions from localStorage (zeroed out on demand)
   useEffect(() => {
     try {
+      // Se ainda não zerou os dados de teste nesta versão, zerar imediatamente
+      const isZeroed = localStorage.getItem(DATA_RESET_KEY);
+      if (!isZeroed) {
+        localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify([]));
+        localStorage.removeItem('nmspr_submission_email_logs_v1');
+        localStorage.setItem(DATA_RESET_KEY, 'true');
+        setSubmissions([]);
+        return;
+      }
+
       const stored = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          // Remove mock seeds so all 12 slots remain fully available
+          // Remove mock seeds so all slots remain fully available
           const realSubmissions = parsed.filter((s: WorkSubmissionData) => !s.id?.startsWith('sub_seed_'));
           setSubmissions(realSubmissions);
           localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(realSubmissions));
@@ -43,8 +54,33 @@ export default function App() {
       localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify([]));
     } catch (e) {
       console.warn('Não foi possível carregar as submissões locais:', e);
+      setSubmissions([]);
     }
   }, []);
+
+  const handleClearAllSubmissions = () => {
+    setSubmissions([]);
+    setCurrentSubmission(null);
+    try {
+      localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify([]));
+      localStorage.removeItem('nmspr_submission_email_logs_v1');
+    } catch (e) {
+      console.warn('Erro ao limpar dados locais:', e);
+    }
+  };
+
+  const handleDeleteSubmission = (id: string) => {
+    const updated = submissions.filter((s) => s.id !== id);
+    setSubmissions(updated);
+    if (currentSubmission?.id === id) {
+      setCurrentSubmission(null);
+    }
+    try {
+      localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Erro ao excluir trabalho:', e);
+    }
+  };
 
   const handleSubmissionSubmit = (newSubmission: WorkSubmissionData) => {
     const updated = [newSubmission, ...submissions.filter((s) => s.id !== newSubmission.id)];
@@ -202,6 +238,8 @@ export default function App() {
               onNewSubmission={handleNewSubmission}
               currentAdmin={currentAdmin}
               onLogout={handleLogout}
+              onClearAllSubmissions={handleClearAllSubmissions}
+              onDeleteSubmission={handleDeleteSubmission}
             />
           ) : (
             <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center space-y-4 max-w-lg mx-auto shadow-sm">
