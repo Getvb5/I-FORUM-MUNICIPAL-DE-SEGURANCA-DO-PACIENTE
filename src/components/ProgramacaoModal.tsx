@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Calendar, Clock, Video, Award, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Calendar, Clock, Video, Award, Users, MapPin, ExternalLink, Copy, Check } from 'lucide-react';
 import { FORUM_INFO, FORUM_PROGRAM } from '../data/forumInfo';
 
 interface ProgramacaoModalProps {
@@ -8,7 +8,21 @@ interface ProgramacaoModalProps {
 }
 
 export const ProgramacaoModal: React.FC<ProgramacaoModalProps> = ({ isOpen, onClose }) => {
+  const [copied, setCopied] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(FORUM_INFO.location);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -38,12 +52,40 @@ export const ProgramacaoModal: React.FC<ProgramacaoModalProps> = ({ isOpen, onCl
 
         {/* Schedule List */}
         <div className="p-6 overflow-y-auto space-y-4 text-slate-800">
-          <div className="bg-[#EBF5FF] border border-[#3498FE]/30 rounded-xl p-3.5 text-xs text-[#001B44] flex items-center justify-between">
+          <div className="bg-[#EBF5FF] border border-[#3498FE]/30 rounded-xl p-3.5 text-xs text-[#001B44] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-[#EA7600] shrink-0" />
-              <span>Modalidade Presencial • Auditório Interne (Rua Marques Amorim, 356)</span>
+              <div>
+                <span className="font-bold block sm:inline">Presencial: </span>
+                <span>{FORUM_INFO.locationVenue} (Rua Marquês Amorim, 356)</span>
+              </div>
             </div>
-            <span className="font-extrabold text-[#EA7600] shrink-0">Carga Horária: 8h</span>
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+              <a
+                href={FORUM_INFO.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3498FE] hover:text-[#1e40af] bg-white px-2 py-1 rounded border border-[#3498FE]/30 transition"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>Maps</span>
+              </a>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 hover:text-[#001B44] bg-white px-2 py-1 rounded border border-slate-300 transition cursor-pointer"
+              >
+                {copied ? (
+                  <span className="text-emerald-700 font-bold flex items-center gap-0.5">
+                    <Check className="w-3 h-3 text-emerald-600" /> Copiado
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-0.5">
+                    <Copy className="w-3 h-3 text-slate-500" /> Copiar
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="divide-y divide-slate-100">

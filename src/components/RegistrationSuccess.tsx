@@ -19,7 +19,8 @@ import {
   Mail,
   CreditCard,
   Users,
-  Check
+  Check,
+  Copy
 } from 'lucide-react';
 import { RegistrationData } from '../types';
 import { FORUM_INFO } from '../data/forumInfo';
@@ -37,6 +38,26 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
 }) => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [showFullCpf, setShowFullCpf] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+
+  const handleCopyAddress = async () => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(FORUM_INFO.location);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = FORUM_INFO.location;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedAddress(true);
+      setTimeout(() => setCopiedAddress(false), 2500);
+    } catch (err) {
+      console.error('Erro ao copiar:', err);
+    }
+  };
 
   useEffect(() => {
     // Fire festive celebration
@@ -58,7 +79,7 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
       cpf: registration.cpf,
       vinculo: registration.institutionalLink,
       perfil: registration.targetProfile || 'Profissional / Estudante',
-      local: 'Interne - Rua Marques Amorim, 356',
+      local: 'Interne Soluções em Saúde - Rua Marquês Amorim, 356',
       data: '30/09/2026',
       status: registration.status,
       realizacao: 'NMSPR - SERMAC/SEAB',
@@ -105,7 +126,7 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
               Parabéns, sua vaga presencial está confirmada!
             </h2>
             <p className="text-xs sm:text-sm text-slate-200">
-              Apresente esta credencial com QR Code na portaria da Interne no dia 30/09/2026 para retirada do seu crachá.
+              Apresente esta credencial com QR Code na portaria da Interne Soluções em Saúde no dia 30/09/2026 para retirada do seu crachá.
             </p>
           </div>
         </div>
@@ -120,6 +141,29 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
             <Printer className="w-4 h-4" />
             Imprimir Comprovante
           </button>
+        </div>
+      </div>
+
+      {/* Confirmação de Envio Automático da Credencial por E-mail (@intelipay) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 no-print">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
+            <Mail className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-sm font-extrabold text-[#001B44]">
+                Credencial Presencial Enviada por E-mail
+              </h4>
+              <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                <Check className="w-3 h-3 text-emerald-600" />
+                Disparo Automático via @intelipay
+              </span>
+            </div>
+            <p className="text-xs text-slate-600">
+              A credencial oficial com QR Code e protocolo <strong>{registration.protocolNumber}</strong> foi processada para envio automático para: <strong className="text-[#001B44]">{registration.email}</strong>.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -163,7 +207,7 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-5 text-xs text-slate-200">
             <div>
               <span className="text-[10px] uppercase text-[#3498FE] block font-bold">Modalidade</span>
-              <span className="font-bold text-white">{FORUM_INFO.modality} (Interne)</span>
+              <span className="font-bold text-white">{FORUM_INFO.modality} (Interne Soluções em Saúde)</span>
             </div>
             <div>
               <span className="text-[10px] uppercase text-[#3498FE] block font-bold">Data</span>
@@ -272,11 +316,32 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
             </div>
 
             {/* Local do Evento Presencial */}
-            <div className="p-3 bg-[#EBF5FF]/70 border border-[#3498FE]/30 rounded-xl text-xs text-[#001B44] flex items-start gap-2.5">
-              <MapPin className="w-4 h-4 text-[#EA7600] shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold block text-[#001B44]">Local de Apresentação Presencial:</span>
-                <span>{FORUM_INFO.locationVenue} — {FORUM_INFO.locationAddress}</span>
+            <div className="p-3 bg-[#EBF5FF]/70 border border-[#3498FE]/30 rounded-xl text-xs text-[#001B44] flex items-start justify-between gap-2.5">
+              <div className="flex items-start gap-2.5">
+                <MapPin className="w-4 h-4 text-[#EA7600] shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block text-[#001B44]">Local de Apresentação Presencial:</span>
+                  <span>{FORUM_INFO.locationVenue} — {FORUM_INFO.locationAddress}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 no-print">
+                <a
+                  href={FORUM_INFO.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-[#3498FE] hover:text-[#1e40af] transition"
+                  title="Abrir no Google Maps"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+                <button
+                  type="button"
+                  onClick={handleCopyAddress}
+                  className="p-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#001B44] transition cursor-pointer"
+                  title="Copiar endereço"
+                >
+                  {copiedAddress ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
               </div>
             </div>
 
@@ -315,7 +380,7 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
               {registration.protocolNumber}
             </span>
             <p className="text-[10px] text-slate-500 mt-1 leading-tight">
-              Apresente na entrada da Interne (celular ou impresso) no dia 30/09/2026.
+              Apresente na entrada da Interne Soluções em Saúde (celular ou impresso) no dia 30/09/2026.
             </p>
           </div>
         </div>
@@ -347,15 +412,36 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
             </p>
           </div>
 
-          <a
-            href={FORUM_INFO.mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold transition cursor-pointer shrink-0 shadow-sm"
-          >
-            <span>Traçar Rota no Google Maps</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={FORUM_INFO.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold transition cursor-pointer shrink-0 shadow-sm"
+            >
+              <span>Traçar Rota no Google Maps</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <button
+              type="button"
+              onClick={handleCopyAddress}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#001B44] text-xs font-bold border border-slate-300 transition cursor-pointer shrink-0"
+              title="Copiar endereço completo"
+            >
+              {copiedAddress ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700 font-extrabold">Endereço Copiado!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Copiar Endereço</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Calendar Integration & New Registration */}

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Calendar, MapPin } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { FORUM_INFO } from '../data/forumInfo';
+import { LocationActionButtons } from './LocationActionButtons';
 
 interface EventVisualBannerProps {
   onOpenProgram?: () => void;
@@ -84,11 +85,8 @@ export const EventVisualBanner: React.FC<EventVisualBannerProps> = ({
             <span>{FORUM_INFO.dates}</span>
           </div>
 
-          {/* Local */}
-          <div className="flex items-center gap-1.5 bg-white text-[#001B44] px-3 py-1.5 rounded-lg font-bold shadow-xs shrink-0 whitespace-nowrap">
-            <MapPin className="w-3.5 h-3.5 text-[#001B44] shrink-0" />
-            <span>{FORUM_INFO.locationVenue}</span>
-          </div>
+          {/* Local com Direcionamento Google Maps e Copiar Endereço */}
+          <LocationActionButtons variant="banner" />
 
           {/* Programação */}
           {onOpenProgram && (

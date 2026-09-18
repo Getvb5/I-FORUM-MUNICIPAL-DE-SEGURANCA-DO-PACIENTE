@@ -157,7 +157,7 @@ export async function generateOfficialPptxTemplate(axisTitle?: string): Promise<
 
   slide1.addText(
     `Eixo Temático: ${axisTitle || '[Selecione o Eixo 1, 2 ou 3]'}\n` +
-    'Data de Realização: 16 de Abril de 2026 • Local: Auditório da Interne Educação',
+    'Data de Realização: 30 de Setembro de 2026 • Local: Auditório da Interne Soluções em Saúde',
     {
       x: 0.9,
       y: 3.35,

@@ -80,14 +80,15 @@ export const FORUM_INFO = {
   dates: '30 de setembro de 2026',
   dateFormatted: '30/09/2026',
   time: '08h00 às 17h00',
-  location: 'Interne, Rua Marques Amorim, 356, Boa Vista, Recife/PE',
-  locationVenue: 'Interne Educação e Saúde',
-  locationAddress: 'Rua Marques Amorim, 356, Boa Vista, Recife/PE',
+  location: 'Interne Soluções em Saúde - Rua Marquês Amorim, 356, Boa Vista, Recife - PE, 50070-330',
+  locationVenue: 'Interne Soluções em Saúde',
+  locationAddress: 'Rua Marquês Amorim, 356, Boa Vista, Recife/PE',
+  locationCep: '50070-330',
   modality: 'Presencial',
   hoursWorkload: '8 (oito) horas',
   hoursWorkloadNumber: 8,
   targetAudience: 'Trabalhadores/as da assistência e da gestão em saúde, profissionais residentes e estudantes de graduação na área da saúde, atuantes na Rede SUS Recife, em especial os Núcleos de Segurança do Paciente (NSP)',
-  mapsUrl: 'https://maps.google.com/?q=Rua+Marques+Amorim,+356,+Boa+Vista,+Recife+-+PE',
+  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330',
 };
 
 export const TARGET_PROFILE_OPTIONS = [

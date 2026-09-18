@@ -1,8 +1,21 @@
-import React from 'react';
-import { ShieldCheck, Mail, Phone, MapPin, ExternalLink, HelpCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, Mail, Phone, MapPin, ExternalLink, HelpCircle, Copy, Check } from 'lucide-react';
 import { FORUM_INFO } from '../data/forumInfo';
 
 export const Footer: React.FC = () => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyAddress = async () => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(FORUM_INFO.location);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
   return (
     <footer className="w-full bg-[#001B44] text-slate-300 pt-12 pb-8 border-t border-[#0A2D6C] no-print mt-16">
       <div className="max-w-6xl mx-auto px-4">
@@ -50,9 +63,38 @@ export const Footer: React.FC = () => {
                 <span className="text-[#EA7600]">•</span>
                 <span>{FORUM_INFO.time}</span>
               </li>
-              <li className="flex items-center gap-2">
-                <span className="text-[#EA7600]">•</span>
-                <span>Auditório da Interne (Boa Vista)</span>
+              <li className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[#EA7600]">•</span>
+                  <span className="text-white font-medium">{FORUM_INFO.locationVenue}</span>
+                </div>
+                <div className="flex items-center gap-2 pl-3 text-[11px]">
+                  <a
+                    href={FORUM_INFO.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#3498FE] hover:underline flex items-center gap-0.5"
+                  >
+                    <span>Google Maps</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                  <span className="text-slate-600">•</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyAddress}
+                    className="text-slate-400 hover:text-white flex items-center gap-0.5 transition cursor-pointer"
+                  >
+                    {copied ? (
+                      <span className="text-emerald-400 font-bold flex items-center gap-0.5">
+                        <Check className="w-2.5 h-2.5" /> Copiado
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-0.5">
+                        <Copy className="w-2.5 h-2.5" /> Copiar endereço
+                      </span>
+                    )}
+                  </button>
+                </div>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-[#EA7600]">•</span>

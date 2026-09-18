@@ -231,7 +231,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   };
 
   // Form submission validation
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneralError(null);
 
@@ -424,13 +424,15 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
       accessibilityNeed
     };
 
-    // Disparar envio de e-mail de confirmação aos participantes
-    sendSubmissionConfirmationEmail(submissionPayload);
+    // Disparar envio de e-mail de confirmação aos participantes (aguardando envio para sincronizar status)
+    try {
+      await sendSubmissionConfirmationEmail(submissionPayload);
+    } catch (err) {
+      console.warn('Erro na comunicação de e-mail:', err);
+    }
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      onSubmit(submissionPayload);
-    }, 450);
+    setIsSubmitting(false);
+    onSubmit(submissionPayload);
   };
 
   return (
@@ -700,7 +702,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-xs font-extrabold uppercase tracking-wider text-[#001B44] flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-[#EA7600]" />
-              Autor(a) Principal (Responsável pela Submissão)
+              Autor(a) Principal ( Responsável pela Inscrição do Trabalho )
             </span>
             <span className="text-[11px] font-bold text-slate-500 bg-white px-2.5 py-0.5 rounded border border-slate-200">
               Autor 1 de {1 + coAuthors.length}
@@ -1591,7 +1593,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
               Acessibilidade e Declaração de Autoria
             </h3>
             <p className="text-xs text-slate-500">
-              Condições para a apresentação presencial no Auditório da Interne (Recife/PE).
+              Condições para a apresentação presencial no Auditório da Interne Soluções em Saúde (Recife/PE).
             </p>
           </div>
         </div>
@@ -1648,7 +1650,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             {isSubmitting ? (
               <>
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Registrando Inscrição...
+                Registrando e Enviando Confirmação...
               </>
             ) : (
               <>

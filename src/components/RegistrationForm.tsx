@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { RegistrationData } from '../types';
 import { formatCPF, cleanCPF, validateCPF } from '../utils/cpfValidator';
+import { sendRegistrationConfirmationEmail } from '../utils/emailConfirmation';
 import { 
   INSTITUTIONAL_OPTIONS, 
   ACCESSIBILITY_OPTIONS, 
@@ -28,6 +29,7 @@ import {
   CNES_HEALTH_UNITS,
   FORUM_INFO 
 } from '../data/forumInfo';
+import { LocationActionButtons } from './LocationActionButtons';
 
 interface RegistrationFormProps {
   onSubmit: (data: RegistrationData) => void;
@@ -171,6 +173,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, re
       status: 'CONFIRMADA'
     };
 
+    // Disparo automático em background do e-mail oficial com todos os detalhes da inscrição
+    sendRegistrationConfirmationEmail(registrationPayload).catch((err) => {
+      console.warn('Erro em background no envio de e-mail de participante:', err);
+    });
+
     setTimeout(() => {
       setIsSubmitting(false);
       onSubmit(registrationPayload);
@@ -263,24 +270,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, re
                   Local
                 </td>
                 <td className="px-4 sm:px-6 py-3.5 text-slate-800">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-[#EA7600] shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-[#001B44] block">{FORUM_INFO.locationVenue}</span>
-                        <span className="text-slate-600 text-xs sm:text-sm">{FORUM_INFO.locationAddress}</span>
-                      </div>
-                    </div>
-                    <a
-                      href={FORUM_INFO.mapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#EA7600] hover:text-[#D26500] bg-[#FFF5E6] hover:bg-[#FFE8CC] px-2.5 py-1.5 rounded-lg border border-[#FED7AA] transition shrink-0 self-start sm:self-auto"
-                    >
-                      <span>Ver no Google Maps</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
+                  <LocationActionButtons variant="card" className="border-0 p-0 bg-transparent" />
                 </td>
               </tr>
 
@@ -819,7 +809,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, re
                 className="mt-1 w-4 h-4 rounded text-[#EA7600] border-slate-300 focus:ring-[#EA7600] cursor-pointer accent-[#EA7600]"
               />
               <span className="text-xs text-slate-600 leading-relaxed select-none">
-                Declaro estar ciente de que as informações fornecidas destinam-se exclusivamente à gestão de inscrições, credenciamento presencial no local do evento (Interne) e emissão do certificado oficial de 8 horas pela <strong>Escola de Saúde do Recife (ESR / SEGTES)</strong>, em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei nº 13.709/2018).
+                Declaro estar ciente de que as informações fornecidas destinam-se exclusivamente à gestão de inscrições, credenciamento presencial no local do evento (Interne Soluções em Saúde) e emissão do certificado oficial de 8 horas pela <strong>Escola de Saúde do Recife (ESR / SEGTES)</strong>, em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei nº 13.709/2018).
               </span>
             </label>
             {touched.termsAccepted && !termsAccepted && (
