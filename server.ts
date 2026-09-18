@@ -30,31 +30,10 @@ function getResendClient(): Resend | null {
 }
 
 // Resolver o remetente oficial Resend sob o domínio @intelipay
-async function resolveResendSender(resend: Resend): Promise<string> {
+async function resolveResendSender(resend?: Resend): Promise<string> {
   if (process.env.RESEND_FROM && !process.env.RESEND_FROM.includes('onboarding@resend.dev')) {
     return process.env.RESEND_FROM;
   }
-
-  // Consultar domínios na conta do Resend
-  try {
-    const { data: domains } = await resend.domains.list();
-    if (domains && Array.isArray(domains) && domains.length > 0) {
-      // Prioridade 1: Domínio que contenha "intelipay"
-      const intelipayDomain = domains.find(d => d.name.toLowerCase().includes('intelipay'));
-      if (intelipayDomain) {
-        return `I Fórum de Qualidade e Segurança <forum@${intelipayDomain.name}>`;
-      }
-      // Prioridade 2: Qualquer domínio verificado
-      const verified = domains.find(d => d.status === 'verified');
-      if (verified) {
-        return `I Fórum de Qualidade e Segurança <forum@${verified.name}>`;
-      }
-      return `I Fórum de Qualidade e Segurança <forum@${domains[0].name}>`;
-    }
-  } catch (err) {
-    console.warn('[Resend Domain Lookup] Consulta de domínios falhou ou sem permissão:', err);
-  }
-
   const domain = process.env.RESEND_DOMAIN || 'intelipay-sesau.com.br';
   return `I Fórum de Qualidade e Segurança <forum@${domain}>`;
 }
@@ -141,7 +120,7 @@ app.get('/api/email-status', async (req, res) => {
 // API Send Confirmation Email Endpoint
 app.post('/api/send-confirmation-email', async (req, res) => {
   try {
-    const { submission, registration, recipientEmail, recipientName, recipientRole, htmlContent, subject } = req.body;
+    const { submission, registration, recipientEmail, recipientName, recipientRole, htmlContent, textContent, subject } = req.body;
 
     if (!recipientEmail || !subject || !htmlContent) {
       return res.status(400).json({
@@ -162,7 +141,9 @@ app.post('/api/send-confirmation-email', async (req, res) => {
         from: fromEmail,
         to: recipientEmail,
         subject: subject,
-        html: htmlContent
+        html: htmlContent,
+        text: textContent || undefined,
+        replyTo: 'forum@intelipay-sesau.com.br'
       });
 
       // Se falhou por domínio não verificado ou não autorizado para esta chave, tentar variantes conhecidas de @intelipay
@@ -303,12 +284,13 @@ app.post('/api/test-email', async (req, res) => {
     // 1. Testar Resend
     const resend = getResendClient();
     if (resend) {
-      const fromEmail = process.env.RESEND_FROM || 'I Fórum <onboarding@resend.dev>';
+      const fromEmail = await resolveResendSender();
       const { data, error } = await resend.emails.send({
         from: fromEmail,
         to: recipient,
         subject: testSubject,
-        html: testHtml
+        html: testHtml,
+        replyTo: 'forum@intelipay-sesau.com.br'
       });
       if (!error && data?.id) {
         return res.json({ success: true, provider: 'RESEND', messageId: data.id, recipient });

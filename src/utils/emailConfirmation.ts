@@ -678,6 +678,7 @@ export async function sendRegistrationConfirmationEmail(registration: Registrati
 
   const subject = `Confirmação de Inscrição: ${registration.protocolNumber} - I Fórum de Qualidade e Segurança do Paciente`;
   const htmlContent = generateAttendeeEmailHtml(registration);
+  const textContent = generateAttendeePlainTextReceipt(registration);
 
   try {
     const response = await fetch('/api/send-confirmation-email', {
@@ -689,7 +690,8 @@ export async function sendRegistrationConfirmationEmail(registration: Registrati
         recipientName: registration.fullName,
         recipientRole: 'Participante (Ouvinte)',
         subject,
-        htmlContent
+        htmlContent,
+        textContent
       })
     });
 
@@ -812,6 +814,7 @@ export async function sendSubmissionConfirmationEmail(submission: WorkSubmission
 
   for (const recipient of recipients) {
     const previewHtml = generateEmailHtml(submission, recipient.name, recipient.role);
+    const plainText = generatePlainTextReceipt(submission, recipient.name);
     let status: 'DELIVERED' | 'SIMULATED' | 'FAILED' = 'SIMULATED';
     let deliveryMode: 'SMTP' | 'RESEND' | 'SIMULATED' | 'DIRECT' = 'SIMULATED';
     let responseMsg = 'E-mail preparado e registrado no sistema.';
@@ -830,7 +833,8 @@ export async function sendSubmissionConfirmationEmail(submission: WorkSubmission
           recipientName: recipient.name,
           recipientRole: recipient.role,
           subject,
-          htmlContent: previewHtml
+          htmlContent: previewHtml,
+          textContent: plainText
         })
       });
 
