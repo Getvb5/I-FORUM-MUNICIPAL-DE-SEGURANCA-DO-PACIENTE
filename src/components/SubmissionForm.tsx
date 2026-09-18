@@ -19,7 +19,12 @@ import {
   BookOpen, 
   Calendar,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Presentation,
+  Download,
+  Link2,
+  Video,
+  ExternalLink
 } from 'lucide-react';
 import { 
   WorkSubmissionData, 
@@ -39,6 +44,7 @@ import {
 } from '../data/forumInfo';
 import { formatCPF, isValidCPF } from '../utils/cpfValidator';
 import { countWords, getWordCountStatus } from '../utils/wordCounter';
+import { sendSubmissionConfirmationEmail } from '../utils/emailConfirmation';
 
 interface SubmissionFormProps {
   onSubmit: (submission: WorkSubmissionData) => void;
@@ -57,7 +63,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   const [thematicAxis, setThematicAxis] = useState<ThematicAxisId>('EIXO_1');
   const [modality, setModality] = useState<SubmissionModality>('RELATO_EXPERIENCIA');
   const [title, setTitle] = useState('');
-  const [developmentPeriod, setDevelopmentPeriod] = useState('2024');
+  const [developmentPeriod, setDevelopmentPeriod] = useState('2025');
   const [accessibilityNeed, setAccessibilityNeed] = useState(ACCESSIBILITY_OPTIONS[0]);
 
   // Main Author State
@@ -86,12 +92,17 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   const [reportChallenges, setReportChallenges] = useState('');
   const [reportLikedDisliked, setReportLikedDisliked] = useState('');
   const [reportWhatCanBeDone, setReportWhatCanBeDone] = useState('');
+  const [reportReferences, setReportReferences] = useState('');
 
   // Artistic Production State (Anexo B)
   const [artisticCategory, setArtisticCategory] = useState<ArtisticProductionType>('Fotografia');
   const [customArtisticCategory, setCustomArtisticCategory] = useState('');
   const [artisticCreationContext, setArtisticCreationContext] = useState('');
   const [artisticTextContent, setArtisticTextContent] = useState('');
+  const [artisticReferences, setArtisticReferences] = useState('');
+
+  // External Media Link (Áudio / Vídeo)
+  const [mediaLink, setMediaLink] = useState('');
 
   // Attachment State
   const [attachedFile, setAttachedFile] = useState<SubmissionAttachment | undefined>(undefined);
@@ -297,6 +308,16 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         return;
       }
 
+      if (!reportReferences.trim()) {
+        setGeneralError('O campo de Referências é obrigatório para o Relato de Experiência (item obrigatório, sem limites de palavras).');
+        return;
+      }
+
+      if (!attachedFile) {
+        setGeneralError('O anexo dos slides do Relato de Experiência (PPT ou PDF) é obrigatório. Por favor, baixe o modelo oficial e anexe seu arquivo antes de prosseguir.');
+        return;
+      }
+
       if (whatWhyStatus.isOver || howDevelopedStatus.isOver || whatLearnedStatus.isOver || challengesStatus.isOver || likedDislikedStatus.isOver || whatCanBeDoneStatus.isOver) {
         setGeneralError('Um ou mais campos do Relato de Experiência ultrapassam o limite de palavras estipulado no Anexo A.');
         return;
@@ -317,6 +338,11 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         return;
       }
 
+      if (!artisticReferences.trim()) {
+        setGeneralError('O campo de Referências é obrigatório para a Produção Artística (item obrigatório, sem limites de palavras).');
+        return;
+      }
+
       if (['Texto Literário', 'Cordel', 'Poesia'].includes(artisticCategory)) {
         if (!artisticTextContent.trim() && !attachedFile) {
           setGeneralError('Digite o texto/cordel/poesia no campo correspondente ou anexe o arquivo (DOCX/PDF).');
@@ -328,8 +354,8 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         }
       }
 
-      if (artisticCategory === 'Fotografia' && !attachedFile) {
-        setGeneralError('Anexe o arquivo de imagem da fotografia (JPG ou PNG, resolução mínima 1080x1080 px).');
+      if (!attachedFile && !artisticTextContent.trim()) {
+        setGeneralError('Anexe o arquivo da Produção Artística (PDF, JPG, PNG ou DOCX).');
         return;
       }
     }
@@ -344,7 +370,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
 
     const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
     const axisIndex = thematicAxis === 'EIXO_1' ? 1 : thematicAxis === 'EIXO_2' ? 2 : 3;
-    const protocolNumber = `SUB-NMSPR-2026-E${axisIndex}-${randomSuffix}`;
+    const protocolNumber = `INSC-NMSPR-2026-E${axisIndex}-${randomSuffix}`;
     const id = `sub_${Date.now()}_${randomSuffix}`;
 
     const selectedAxis = THEMATIC_AXES.find(a => a.id === thematicAxis);
@@ -380,19 +406,26 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         whatLearned: reportWhatLearned.trim(),
         challenges: reportChallenges.trim(),
         likedAndDisliked: reportLikedDisliked.trim(),
-        whatCanBeDone: reportWhatCanBeDone.trim()
+        whatCanBeDone: reportWhatCanBeDone.trim(),
+        references: reportReferences.trim()
       } : undefined,
       artisticProduction: modality === 'PRODUCAO_ARTISTICA' ? {
         artisticCategory,
         customArtisticCategory: artisticCategory === 'Outra manifestação artística' ? customArtisticCategory : undefined,
         creationContext: artisticCreationContext.trim(),
-        textContent: artisticTextContent.trim() || undefined
+        textContent: artisticTextContent.trim() || undefined,
+        references: artisticReferences.trim()
       } : undefined,
+      references: modality === 'RELATO_EXPERIENCIA' ? reportReferences.trim() : artisticReferences.trim(),
+      mediaLink: mediaLink.trim() || undefined,
       attachedFile,
-      status: 'SUBMETIDO',
+      status: 'INSCRITO',
       slotOrder: (axisCounts[thematicAxis] || 0) + 1,
       accessibilityNeed
     };
+
+    // Disparar envio de e-mail de confirmação aos participantes
+    sendSubmissionConfirmationEmail(submissionPayload);
 
     setTimeout(() => {
       setIsSubmitting(false);
@@ -410,10 +443,10 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
           </div>
           <div>
             <h3 className="font-extrabold text-[#001B44] text-sm sm:text-base leading-tight">
-              Regras do Item 7: Submissão de Trabalhos na Oficina
+              Regras do Item 7: Inscrição de Trabalhos na Oficina
             </h3>
             <p className="text-xs text-slate-600 mt-0.5">
-              12 vagas por eixo (36 no total por ordem de inscrição). Até 8 autores por trabalho. Trabalhos de 2023 a 2026.
+              10 vagas por eixo (30 no total por ordem de inscrição). Até 8 autores por trabalho. Trabalhos de 2025 a 2026.
             </p>
           </div>
         </div>
@@ -424,7 +457,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
           className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-[#001B44] bg-slate-100 hover:bg-slate-200 border border-slate-300 transition cursor-pointer shrink-0"
         >
           <Info className="w-3.5 h-3.5 text-[#EA7600]" />
-          Ver Detalhes do Edital (Item 7)
+          Ver Detalhes das Regras de Inscrição
         </button>
       </div>
 
@@ -447,7 +480,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
               Identificação do Trabalho e Modalidade
             </h3>
             <p className="text-xs text-slate-500">
-              Selecione o eixo temático, a modalidade de apresentação e o período de realização (2023-2026).
+              Selecione o eixo temático, a modalidade de apresentação e o período de realização (2025-2026).
             </p>
           </div>
         </div>
@@ -486,14 +519,24 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                       {axis.title}
                     </h4>
                     <p className="text-[11px] text-slate-600 leading-relaxed">
-                      {axis.description}
+                      {axis.id === 'EIXO_2' ? (
+                        <>
+                          Continuidade e integração do cuidado entre níveis e pontos de atenção, e segurança no manejo de condições crônicas, com especial interesse no{' '}
+                          <mark className="bg-amber-100/90 text-amber-950 font-bold px-1 py-0.5 rounded border border-amber-300 not-italic">
+                            cuidado seguro às pessoas com DCNT (Campanha OMS 2026)
+                          </mark>
+                          , além de comunicação efetiva, escuta ativa e participação do paciente e da família.
+                        </>
+                      ) : (
+                        axis.description
+                      )}
                     </p>
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
                     <span className="text-slate-500 font-medium">Ordem de inscrição:</span>
                     <span className="font-bold text-[#001B44]">
-                      {count >= axis.maxSlots ? 'Lista de Espera' : `Vaga #${count + 1} de 12`}
+                      {count >= axis.maxSlots ? 'Lista de Espera' : `Vaga #${count + 1} de ${axis.maxSlots}`}
                     </span>
                   </div>
                 </div>
@@ -571,12 +614,10 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             >
               <option value="2026">2026 (Ano corrente)</option>
               <option value="2025">2025</option>
-              <option value="2024">2024</option>
-              <option value="2023">2023</option>
-              <option value="2023-2026">Período Contínuo (2023 a 2026)</option>
+              <option value="2025-2026">Período Contínuo (2025-2026)</option>
             </select>
             <span className="text-[11px] text-slate-500 mt-1 block">
-              Item 7.2: entre 2023 e 2026.
+              Item 7.2: realização entre 2025 e 2026.
             </span>
           </div>
 
@@ -1027,6 +1068,37 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         {/* MODALIDADE 1: RELATO DE EXPERIÊNCIA (ANEXO A) */}
         {modality === 'RELATO_EXPERIENCIA' && (
           <div className="space-y-5">
+            {/* Template Oficial de Slides PPTX */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-sky-50 to-blue-50/50 border border-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#001B44] text-[#EA7600] flex items-center justify-center shrink-0 shadow-2xs">
+                  <Presentation className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-[#001B44]">
+                      Template Oficial: Dia Mundial da Segurança do Paciente 2026 (14 Slides)
+                    </h4>
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-100 text-[#EA7600] border border-orange-200">
+                      14 Slides
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                    Acesse o modelo oficial em PowerPoint (.pptx) estruturado com os 14 slides: Capa do Dia Mundial, Apresentação/Autores, Divisor, Título/Afiliações, as 6 seções do roteiro, Referências e slides finais de agradecimento.
+                  </p>
+                </div>
+              </div>
+              <a
+                href={SUBMISSION_RULES.officialTemplateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold transition flex items-center justify-center gap-2 shrink-0 shadow-xs cursor-pointer"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Acessar Modelo</span>
+              </a>
+            </div>
+
             {/* Campo 1 */}
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -1174,29 +1246,77 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
               </div>
             </div>
 
-            {/* Upload Complementar de Arquivo do Relato (Item 7.7.a) */}
-            <div className="pt-3 border-t border-slate-100">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Anexo do Relato de Experiência (DOCX ou PDF) <span className="text-slate-400 lowercase">(opcional)</span>
-              </label>
-              <div className="flex items-center gap-3">
+            {/* Campo de Referências do Relato de Experiência (Item Obrigatório - Sem Limites de Palavras) */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-[#001B44]">
+                  Referências <span className="text-[#EA7600]">*</span>{' '}
+                  <span className="text-slate-500 font-normal lowercase">(item obrigatório, sem limite de palavras)</span>
+                </label>
+                <span className="text-[11px] font-mono text-slate-500 font-semibold">
+                  {countWords(reportReferences)} palavras
+                </span>
+              </div>
+              <textarea
+                required
+                rows={4}
+                placeholder="Insira as referências técnico-científicas utilizadas (normas ABNT ou Vancouver, protocolos da OMS/ANVISA, manuais do Ministério da Saúde, legislações, artigos, etc.)..."
+                value={reportReferences}
+                onChange={(e) => setReportReferences(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE] font-mono"
+              />
+            </div>
+
+            {/* Anexo Obrigatório do Relato de Experiência (Slides PPT ou PDF - Usar Modelo) */}
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#001B44]">
+                    Anexo do Relato de Experiência (PPT ou PDF) <span className="text-[#EA7600]">* (obrigatório)</span>
+                  </label>
+                  <span className="text-[11px] text-slate-500 block">
+                    Item 7.7.a: É obrigatório o envio dos slides da apresentação (PPT ou PDF). Acesse o modelo oficial do Dia Mundial 2026 (14 slides) no link ao lado.
+                  </span>
+                </div>
+
+                <a
+                  href={SUBMISSION_RULES.officialTemplateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-[#EA7600] border border-orange-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Acessar Modelo</span>
+                </a>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <input
                   type="file"
                   id="file-relato"
-                  accept=".pdf,.docx,.doc"
+                  accept=".pdf,.pptx,.ppt,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
                 <label
                   htmlFor="file-relato"
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-[#001B44] bg-slate-50 hover:bg-slate-100 transition cursor-pointer flex items-center gap-2"
+                  className={`px-4 py-2.5 rounded-xl border text-xs font-bold transition cursor-pointer flex items-center gap-2 ${
+                    attachedFile 
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-800' 
+                      : 'border-orange-300 bg-orange-50/50 hover:bg-orange-100 text-[#001B44]'
+                  }`}
                 >
-                  <Upload className="w-3.5 h-3.5 text-[#3498FE]" />
-                  {attachedFile ? 'Trocar Arquivo Anexado' : 'Selecionar Arquivo DOCX ou PDF'}
+                  <Upload className="w-4 h-4 text-[#EA7600]" />
+                  {attachedFile ? 'Trocar Arquivo Anexado' : 'Anexar Slides (PPTX ou PDF) *'}
                 </label>
-                {attachedFile && (
-                  <span className="text-xs text-slate-600 font-medium">
+                {attachedFile ? (
+                  <span className="text-xs text-emerald-800 font-semibold flex items-center gap-1 bg-emerald-100/70 px-2.5 py-1 rounded-lg">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     {attachedFile.name} ({(attachedFile.size / 1024).toFixed(0)} KB)
+                  </span>
+                ) : (
+                  <span className="text-xs text-rose-600 font-semibold">
+                    * Arquivo não anexado (obrigatório)
                   </span>
                 )}
               </div>
@@ -1207,6 +1327,37 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         {/* MODALIDADE 2: PRODUÇÃO ARTÍSTICA (ANEXO B) */}
         {modality === 'PRODUCAO_ARTISTICA' && (
           <div className="space-y-5">
+            {/* Template / Orientações Produções Artísticas Banner */}
+            <div className="p-4 rounded-xl bg-orange-50/70 border border-orange-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#EA7600] text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <Palette className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-xs uppercase tracking-wider text-[#001B44]">
+                      Modelo e Orientações para Produções Artísticas
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#EA7600] text-white">
+                      Anexo B
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                    Acesse a pasta oficial no Google Drive com os modelos, diretrizes e orientações para submissão das produções artísticas (fotografia, texto, cordel, poesia ou outras linguagens).
+                  </p>
+                </div>
+              </div>
+              <a
+                href={SUBMISSION_RULES.artisticTemplateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold transition flex items-center justify-center gap-2 shrink-0 shadow-xs cursor-pointer"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Acessar Modelo</span>
+              </a>
+            </div>
+
             {/* Modalidade da Produção */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -1292,7 +1443,28 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
               </div>
             )}
 
-            {/* Upload de Arquivo com Validação de Fotografia (1080x1080 px) */}
+            {/* Campo de Referências da Produção Artística (Item Obrigatório - Sem Limites de Palavras) */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-[#001B44]">
+                  Referências <span className="text-[#EA7600]">*</span>{' '}
+                  <span className="text-slate-500 font-normal lowercase">(item obrigatório, sem limite de palavras)</span>
+                </label>
+                <span className="text-[11px] font-mono text-slate-500 font-semibold">
+                  {countWords(artisticReferences)} palavras
+                </span>
+              </div>
+              <textarea
+                required
+                rows={3}
+                placeholder="Insira as referências conceituais, teóricas, artísticas ou bibliográficas que fundamentaram ou inspiraram a produção..."
+                value={artisticReferences}
+                onChange={(e) => setArtisticReferences(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#EA7600]/20 focus:border-[#EA7600] font-mono"
+              />
+            </div>
+
+            {/* Upload de Arquivo da Produção Artística (Permite PDF, Imagens JPG/PNG ou DOCX/PPTX) */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
               <span className="text-xs font-bold uppercase tracking-wider text-[#001B44] block">
                 Arquivo da Produção Artística (Item 7.7.e) <span className="text-[#EA7600]">*</span>
@@ -1301,13 +1473,13 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
               {artisticCategory === 'Fotografia' ? (
                 <div>
                   <p className="text-xs text-slate-600 mb-2">
-                    Fotografias devem estar no formato <strong>JPG ou PNG</strong>, com <strong>resolução mínima de 1080x1080 px</strong>.
+                    Fotografias podem ser enviadas em formato de imagem (<strong>JPG ou PNG</strong>, resolução mínima de 1080x1080 px) ou arquivo compilado em <strong>PDF</strong>.
                   </p>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                     <input
                       type="file"
                       id="file-artistic-photo"
-                      accept="image/jpeg,image/png,image/jpg"
+                      accept="image/jpeg,image/png,image/jpg,.pdf,application/pdf"
                       onChange={handleFileUpload}
                       className="hidden"
                     />
@@ -1316,7 +1488,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                       className="px-4 py-2.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition"
                     >
                       <ImageIcon className="w-4 h-4" />
-                      {attachedFile ? 'Substituir Fotografia' : 'Carregar Fotografia (JPG/PNG)'}
+                      {attachedFile ? 'Substituir Arquivo' : 'Carregar Fotografia ou PDF (JPG, PNG ou PDF)'}
                     </label>
 
                     {attachedFile?.previewUrl && (
@@ -1335,6 +1507,12 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                         </div>
                       </div>
                     )}
+                    {attachedFile && !attachedFile.previewUrl && (
+                      <span className="text-xs text-slate-700 font-semibold bg-white p-2 rounded-lg border border-slate-200 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-[#EA7600]" />
+                        {attachedFile.name} ({(attachedFile.size / 1024).toFixed(0)} KB)
+                      </span>
+                    )}
                   </div>
 
                   {photoError && (
@@ -1347,13 +1525,13 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
               ) : (
                 <div>
                   <p className="text-xs text-slate-600 mb-2">
-                    Anexe o arquivo em formato <strong>DOCX ou PDF</strong> (textos, cordéis, poesias ou registro visual).
+                    Anexe o arquivo em formato <strong>PDF</strong>, <strong>PPTX</strong> ou <strong>DOCX</strong> (apresentação visual, textos, cordéis, poesias ou registro).
                   </p>
                   <div className="flex items-center gap-3">
                     <input
                       type="file"
                       id="file-artistic-doc"
-                      accept=".pdf,.docx,.doc"
+                      accept=".pdf,application/pdf,.docx,.doc,.pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
                       onChange={handleFileUpload}
                       className="hidden"
                     />
@@ -1362,7 +1540,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                       className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-[#001B44] bg-white hover:bg-slate-100 transition cursor-pointer flex items-center gap-2"
                     >
                       <Upload className="w-3.5 h-3.5 text-[#EA7600]" />
-                      {attachedFile ? 'Substituir Arquivo' : 'Carregar Arquivo DOCX ou PDF'}
+                      {attachedFile ? 'Substituir Arquivo' : 'Carregar Arquivo (PDF, PPTX ou DOCX)'}
                     </label>
                     {attachedFile && (
                       <span className="text-xs text-slate-600 font-medium">
@@ -1372,6 +1550,31 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Link Externo para Áudio e Vídeo */}
+            <div className="p-4 rounded-xl bg-sky-50/70 border border-sky-200 space-y-2">
+              <div className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-[#3498FE]" />
+                <label className="text-xs font-bold text-[#001B44] uppercase tracking-wider">
+                  Link para outros tipos de arquivos (Áudio e Vídeo) <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                </label>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Disponibilize o link de compartilhamento caso seu trabalho utilize arquivos de áudio (podcast, música, declamação) ou vídeo (filme, registro cênico, animação). Exemplo: link público ou de visualização do Google Drive, YouTube, Vimeo, Spotify, SoundCloud, etc.
+              </p>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <ExternalLink className="w-4 h-4 text-[#EA7600]" />
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/... ou https://youtube.com/..."
+                  value={mediaLink}
+                  onChange={(e) => setMediaLink(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20 focus:border-[#3498FE]"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1420,15 +1623,21 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
               className="mt-1 w-4 h-4 rounded border-slate-300 text-[#EA7600] focus:ring-[#EA7600]"
             />
             <span className="text-xs text-slate-700 leading-relaxed">
-              Declaro que as informações prestadas são verídicas, que o trabalho foi desenvolvido no âmbito da Rede SUS Recife entre 2023 e 2026, e que todos os/as autores/as listados participaram da sua elaboração, estando cientes das normas do Item 7 do Edital do I Fórum Municipal de Qualidade e Segurança do Paciente.
+              Declaro que as informações prestadas são verídicas, que o trabalho foi desenvolvido no âmbito da Rede SUS Recife entre 2025 e 2026, e que todos os/as autores/as listados participaram da sua elaboração, estando cientes das normas do Item 7 do Edital do I Fórum Municipal de Qualidade e Segurança do Paciente.
             </span>
           </label>
         </div>
 
-        {/* Botão de Submissão */}
+        {/* Informações pós-envio e Botão de Submissão */}
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-xs text-slate-500">
-            Após a submissão, um <strong>protocolo oficial de inscrição</strong> será gerado para impressão e acompanhamento.
+          <div className="text-xs text-slate-600 max-w-md">
+            <div className="flex items-center gap-1.5 font-bold text-emerald-700 mb-0.5">
+              <Mail className="w-3.5 h-3.5" />
+              Após o envio, os/as participantes receberão e-mail de confirmação.
+            </div>
+            <span>
+              Um <strong>protocolo oficial de inscrição</strong> será emitido para impressão e acompanhamento no sistema.
+            </span>
           </div>
 
           <button
@@ -1439,12 +1648,12 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             {isSubmitting ? (
               <>
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Registrando Submissão...
+                Registrando Inscrição...
               </>
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                Submeter Trabalho na Oficina
+                Inscrever Trabalho na Oficina
               </>
             )}
           </button>

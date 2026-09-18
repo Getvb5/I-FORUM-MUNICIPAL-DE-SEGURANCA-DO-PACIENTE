@@ -17,11 +17,25 @@ import {
   BookOpen,
   Palette,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  Send,
+  Copy,
+  Eye,
+  X,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { WorkSubmissionData } from '../types';
 import { FORUM_INFO } from '../data/forumInfo';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
+import { 
+  sendSubmissionConfirmationEmail, 
+  generateGmailWebLink, 
+  generateMailtoLink, 
+  generatePlainTextReceipt, 
+  generateEmailHtml, 
+  getSentEmailLogs 
+} from '../utils/emailConfirmation';
 
 interface SubmissionSuccessProps {
   submission: WorkSubmissionData;
@@ -36,6 +50,10 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [showFullReport, setShowFullReport] = useState(true);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
+  const [copiedTextReceipt, setCopiedTextReceipt] = useState(false);
 
   const handlePrint = () => {
     window.print();
@@ -46,6 +64,39 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
       navigator.clipboard.writeText(submission.protocolNumber);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
+  const plainReceipt = generatePlainTextReceipt(submission, submission.mainAuthor.fullName);
+  const emailSubject = `Confirmação de Inscrição de Trabalho: ${submission.protocolNumber} - I Fórum de Qualidade e Segurança do Paciente`;
+  const gmailWebUrl = generateGmailWebLink(submission.mainAuthor.email, emailSubject, plainReceipt);
+  const mailtoUrl = generateMailtoLink(submission.mainAuthor.email, emailSubject, plainReceipt);
+
+  const handleResend = async () => {
+    setIsResending(true);
+    setEmailFeedback(null);
+    try {
+      const res = await sendSubmissionConfirmationEmail(submission);
+      const firstResult = res.results?.[0];
+      if (firstResult?.status === 'DELIVERED') {
+        setEmailFeedback(`E-mail de confirmação enviado automaticamente com sucesso para ${submission.mainAuthor.email} (via Resend)!`);
+      } else if (firstResult?.restrictedByResend) {
+        setEmailFeedback(`Atenção: No modo de teste do Resend, o envio automático só é liberado para o e-mail da sua conta (getulio.batista@ufpe.br). Para o e-mail ${submission.mainAuthor.email}, utilize o botão "Abrir no Gmail Web" ao lado para disparar em 1 clique!`);
+      } else {
+        setEmailFeedback(firstResult?.message || `Confirmação processada! Use o botão "Abrir no Gmail Web" para disparar diretamente.`);
+      }
+    } catch (e: any) {
+      setEmailFeedback('Erro ao disparar envio. Utilize a opção "Abrir no Gmail Web".');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  const handleCopyReceiptText = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(plainReceipt);
+      setCopiedTextReceipt(true);
+      setTimeout(() => setCopiedTextReceipt(false), 2500);
     }
   };
 
@@ -69,10 +120,10 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
           </div>
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-widest bg-white/25 px-2.5 py-0.5 rounded">
-              Submissão Registrada com Sucesso
+              Inscrição Registrada com Sucesso
             </span>
             <h2 className="text-xl sm:text-2xl font-black mt-1 font-display">
-              Trabalho Enviado para a Oficina Municipal!
+              Trabalho Inscrito na Oficina Municipal!
             </h2>
             <p className="text-xs sm:text-sm text-emerald-100 mt-1 max-w-xl">
               Seu trabalho foi recebido e registrado com sucesso. Guarde o protocolo oficial abaixo para comprovação e acompanhamento.
@@ -92,6 +143,150 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
         </div>
       </div>
 
+      {/* Confirmation Email Center Card */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white border-2 border-orange-200 shadow-sm no-print space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 text-[#EA7600] flex items-center justify-center shrink-0 mt-0.5">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-extrabold text-[#001B44]">
+                  Confirmação e Envio de E-mail
+                </h4>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                  Pronto
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Destinatário principal: <strong className="text-slate-800">{submission.mainAuthor.email}</strong>
+                {submission.coAuthors.length > 0 && ` (+${submission.coAuthors.length} coautores)`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={gmailWebUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Abre o Gmail diretamente com o e-mail oficial preenchido"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Abrir no Gmail Web</span>
+            </a>
+
+            <a
+              href={mailtoUrl}
+              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#001B44] text-xs font-bold transition flex items-center gap-1.5 border border-slate-300 cursor-pointer"
+              title="Abre o seu programa de e-mail padrão (Outlook, Thunderbird, Apple Mail)"
+            >
+              <Mail className="w-3.5 h-3.5 text-slate-600" />
+              <span>Outro Leitor</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => setShowEmailModal(true)}
+              className="px-3 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold transition flex items-center gap-1.5 border border-sky-200 cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5 text-sky-600" />
+              <span>Ver E-mail Oficial</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={isResending}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+              title="Tentar reenviar via servidor"
+            >
+              <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin text-[#EA7600]' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {emailFeedback && (
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>{emailFeedback}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Official Email Preview Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto no-print">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden my-auto">
+            <div className="bg-[#001B44] text-white p-4 sm:p-5 flex items-center justify-between gap-4 border-b border-[#0A2D6C]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#EA7600] flex items-center justify-center text-white shrink-0">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+                    Modelo do E-mail Oficial de Confirmação
+                  </h3>
+                  <p className="text-[11px] text-sky-200">
+                    Enviado aos participantes do I Fórum de Qualidade e Segurança do Paciente
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEmailModal(false)}
+                className="text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div 
+                  dangerouslySetInnerHTML={{ 
+                    __html: generateEmailHtml(submission, submission.mainAuthor.fullName, 'Autor(a) Principal') 
+                  }} 
+                />
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleCopyReceiptText}
+                className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-slate-600" />
+                <span>{copiedTextReceipt ? 'Copiado para Área de Transferência!' : 'Copiar Texto do Comprovante'}</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={gmailWebUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Disparar no Gmail</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setShowEmailModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Official Comprovante Card (printable) */}
       <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-lg overflow-hidden printable-comprovante">
         {/* Institutional Top Bar in Navy & Orange */}
@@ -105,7 +300,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                 SUS RECIFE • OFICIAL 2026
               </span>
               <h3 className="text-base sm:text-lg font-black text-white leading-tight font-display mt-0.5">
-                Comprovante de Submissão de Trabalho na Oficina
+                Comprovante de Inscrição de Trabalho na Oficina
               </h3>
               <p className="text-xs text-sky-200">
                 {FORUM_INFO.fullTitle}
@@ -115,7 +310,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
 
           <div className="flex flex-col md:items-end text-left md:text-right">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-              Protocolo Oficial de Submissão
+              Protocolo Oficial de Inscrição
             </span>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-base sm:text-lg font-mono font-black text-[#EA7600] bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
@@ -172,7 +367,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                 Ordem de Inscrição no Eixo
               </span>
               <span className="font-extrabold text-xs sm:text-sm text-emerald-700 block">
-                {submission.slotOrder <= 12 ? `Vaga #${submission.slotOrder} de 12 (Apresentação Garantida)` : `Ordem #${submission.slotOrder} (Lista Geral)`}
+                {submission.slotOrder <= 10 ? `Vaga #${submission.slotOrder} de 10 (Apresentação Garantida)` : `Ordem #${submission.slotOrder} (Lista Geral)`}
               </span>
             </div>
           </div>
@@ -262,7 +457,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
             <div className="flex items-center justify-between mb-3">
               <h5 className="text-xs font-extrabold uppercase tracking-wider text-[#001B44] flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#3498FE]" />
-                Conteúdo da Submissão
+                Conteúdo do Trabalho Inscrito
               </h5>
               <button
                 type="button"
@@ -318,6 +513,15 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                         </p>
                       </div>
                     </div>
+
+                    {submission.experienceReport.references && (
+                      <div className="pt-2 border-t border-slate-200">
+                        <strong className="block text-[#001B44] mb-0.5">Referências (Item Obrigatório):</strong>
+                        <p className="bg-white p-3 rounded-lg border border-slate-200 whitespace-pre-line font-mono text-[11px] text-slate-700">
+                          {submission.experienceReport.references}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -348,20 +552,47 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
 
                     {submission.attachedFile?.previewUrl && (
                       <div>
-                        <strong className="block text-[#001B44] mb-1">Fotografia Anexada:</strong>
+                        <strong className="block text-[#001B44] mb-1">Fotografia / Imagem Anexada:</strong>
                         <img 
                           src={submission.attachedFile.previewUrl} 
-                          alt="Fotografia Submetida" 
+                          alt="Arquivo Anexado" 
                           className="max-h-64 rounded-xl border border-slate-300 shadow-sm"
                         />
+                      </div>
+                    )}
+
+                    {submission.artisticProduction.references && (
+                      <div className="pt-2 border-t border-slate-200">
+                        <strong className="block text-[#001B44] mb-0.5">Referências (Item Obrigatório):</strong>
+                        <p className="bg-white p-3 rounded-lg border border-slate-200 whitespace-pre-line font-mono text-[11px] text-slate-700">
+                          {submission.artisticProduction.references}
+                        </p>
                       </div>
                     )}
                   </div>
                 )}
 
-                {submission.attachedFile && !submission.attachedFile.previewUrl && (
-                  <div className="pt-2 text-xs text-slate-600">
-                    <strong>Arquivo Anexado:</strong> {submission.attachedFile.name} ({(submission.attachedFile.size / 1024).toFixed(0)} KB)
+                {submission.mediaLink && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <strong className="block text-[#001B44] mb-1">Link para Arquivos Externos (Áudio/Vídeo):</strong>
+                    <a
+                      href={submission.mediaLink.startsWith('http') ? submission.mediaLink : `https://${submission.mediaLink}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 border border-sky-200 text-[#001B44] hover:bg-sky-100 font-bold transition text-xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-[#EA7600]" />
+                      <span>{submission.mediaLink}</span>
+                    </a>
+                  </div>
+                )}
+
+                {submission.attachedFile && (
+                  <div className="pt-2 text-xs text-slate-600 border-t border-slate-200 flex items-center gap-2">
+                    <strong className="text-[#001B44]">Arquivo Anexado:</strong> 
+                    <span className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {submission.attachedFile.name} ({(submission.attachedFile.size / 1024).toFixed(0)} KB)
+                    </span>
                   </div>
                 )}
               </div>
@@ -435,7 +666,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
             className="px-5 py-2.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1.5"
           >
             <PlusCircle className="w-4 h-4" />
-            Submeter Outro Trabalho
+            Inscrever Outro Trabalho
           </button>
         </div>
       </div>

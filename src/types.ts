@@ -34,6 +34,7 @@ export interface ExperienceReportData {
   challenges: string; // até 100 palavras: Que desafios foram encontrados para o seu desenvolvimento?
   likedAndDisliked: string; // até 100 palavras: O que você mais gostou e o que não gostou da experiência desenvolvida?
   whatCanBeDone: string; // até 100 palavras: Pensando no que você descreveu sobre a sua experiência, o que mais ainda pode ser feito?
+  references: string; // Referências obrigatórias (sem limite de palavras)
 }
 
 export type ArtisticProductionType = 
@@ -48,6 +49,7 @@ export interface ArtisticProductionData {
   customArtisticCategory?: string;
   creationContext: string; // até 300 palavras: Onde, quando e por que foi produzida
   textContent?: string; // até 1.000 palavras (para textos, cordéis e poesias)
+  references: string; // Referências obrigatórias (sem limite de palavras)
 }
 
 export interface SubmissionAttachment {
@@ -67,13 +69,15 @@ export interface WorkSubmissionData {
   thematicAxisLabel: string;
   modality: SubmissionModality;
   title: string; // até 15 palavras
-  developmentPeriod: string; // Desenvolvido entre 2023 e 2026
+  developmentPeriod: string; // Desenvolvido entre 2025 e 2026
   mainAuthor: AuthorData;
   coAuthors: AuthorData[]; // até 7 coautores (total até 8 autores)
   experienceReport?: ExperienceReportData;
   artisticProduction?: ArtisticProductionData;
+  references: string; // Referências obrigatórias (sem limite de palavras)
   attachedFile?: SubmissionAttachment;
-  status: 'SUBMETIDO' | 'HOMOLOGADO';
+  mediaLink?: string; // Link para arquivos complementares (áudio, vídeo, nuvem)
+  status: 'INSCRITO' | 'SUBMETIDO' | 'HOMOLOGADO';
   slotOrder: number;
   accessibilityNeed?: string;
 }

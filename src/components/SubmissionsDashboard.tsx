@@ -84,7 +84,7 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
   const handleExportCSV = () => {
     const headers = [
       'Protocolo',
-      'Data Submissão',
+      'Data Inscrição',
       'Eixo Temático',
       'Ordem da Vaga',
       'Modalidade',
@@ -174,11 +174,11 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
               Painel Restrito • Comissão Avaliadora
             </span>
             <span className="text-xs font-bold text-[#EA7600]">
-              {submissions.length} {submissions.length === 1 ? 'trabalho submetido' : 'trabalhos submetidos'}
+              {submissions.length} {submissions.length === 1 ? 'trabalho inscrito' : 'trabalhos inscritos'}
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-[#001B44] font-display">
-            Gestão dos Trabalhos Submetidos na Oficina
+            Gestão dos Trabalhos Inscritos na Oficina
           </h2>
           <p className="text-xs text-slate-600 mt-1">
             Visualização restrita de Relatos de Experiência e Produções Artísticas por Eixo Temático e ordem de inscrição (Item 7.4).
@@ -201,12 +201,12 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
             className="px-4 py-2 rounded-xl bg-[#EA7600] hover:bg-[#D26500] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
-            Submeter Novo Trabalho
+            Inscrever Novo Trabalho
           </button>
         </div>
       </div>
 
-      {/* Axis Vacancies & Progress Cards (12 vagas por eixo) */}
+      {/* Axis Vacancies & Progress Cards (10 vagas por eixo) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         {THEMATIC_AXES.map((axis) => {
           const count = axisCounts[axis.id] || 0;
@@ -282,9 +282,9 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3498FE]/20"
             >
               <option value="ALL">Todos os Eixos Temáticos</option>
-              <option value="EIXO_1">Eixo 1 (Segurança & Riscos)</option>
-              <option value="EIXO_2">Eixo 2 (Educação Permanente & Inovação)</option>
-              <option value="EIXO_3">Eixo 3 (Experiência do Paciente)</option>
+              <option value="EIXO_1">Eixo 1 (Segurança do Paciente & Riscos)</option>
+              <option value="EIXO_2">Eixo 2 (Integração do Cuidado & Condições Crônicas)</option>
+              <option value="EIXO_3">Eixo 3 (Educação Permanente & Qualidade)</option>
             </select>
           </div>
 
@@ -305,7 +305,7 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
         {/* Quick Active Filters Summary */}
         <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 pt-1">
           <span>
-            Exibindo <strong>{filtered.length}</strong> de <strong>{submissions.length}</strong> trabalhos submetidos
+            Exibindo <strong>{filtered.length}</strong> de <strong>{submissions.length}</strong> trabalhos inscritos
           </span>
           {(selectedAxis !== 'ALL' || selectedModality !== 'ALL' || searchTerm.trim()) && (
             <button
@@ -352,11 +352,11 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
                       </span>
 
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                        sub.slotOrder <= 12 
+                        sub.slotOrder <= 10 
                           ? 'bg-emerald-100 text-emerald-800' 
                           : 'bg-amber-100 text-amber-800'
                       }`}>
-                        Vaga #{sub.slotOrder} de 12
+                        Vaga #{sub.slotOrder} de 10
                       </span>
 
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 flex items-center gap-1">
@@ -480,6 +480,15 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
                             <p className="text-slate-600">{sub.experienceReport.whatCanBeDone}</p>
                           </div>
                         </div>
+
+                        {sub.experienceReport.references && (
+                          <div className="pt-2 border-t border-slate-200">
+                            <strong className="text-[#001B44] block mb-0.5">Referências (Item Obrigatório):</strong>
+                            <p className="text-slate-600 font-mono text-[11px] whitespace-pre-line bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                              {sub.experienceReport.references}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -499,7 +508,7 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
                         )}
                         {sub.attachedFile?.previewUrl && (
                           <div>
-                            <strong className="text-[#001B44] block mb-1">Fotografia Anexada:</strong>
+                            <strong className="text-[#001B44] block mb-1">Fotografia / Imagem Anexada:</strong>
                             <img 
                               src={sub.attachedFile.previewUrl} 
                               alt="Fotografia" 
@@ -507,6 +516,33 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
                             />
                           </div>
                         )}
+                        {sub.artisticProduction.references && (
+                          <div className="pt-2 border-t border-slate-200">
+                            <strong className="text-[#001B44] block mb-0.5">Referências (Item Obrigatório):</strong>
+                            <p className="text-slate-600 font-mono text-[11px] whitespace-pre-line bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                              {sub.artisticProduction.references}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {sub.mediaLink && (
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                            Link Externo (Áudio / Vídeo)
+                          </span>
+                          <a
+                            href={sub.mediaLink.startsWith('http') ? sub.mediaLink : `https://${sub.mediaLink}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-[#3498FE] hover:underline inline-flex items-center gap-1.5"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            {sub.mediaLink}
+                          </a>
+                        </div>
                       </div>
                     )}
                   </div>

@@ -136,7 +136,7 @@ export default function App() {
                 }`}
               >
                 <FileEdit className="w-4 h-4 text-[#EA7600]" />
-                <span>Formulário de Submissão</span>
+                <span>Formulário de Inscrição</span>
               </button>
 
               <button
@@ -151,7 +151,7 @@ export default function App() {
                 {currentAdmin ? (
                   <>
                     <FolderKanban className="w-4 h-4 text-[#3498FE]" />
-                    <span>Trabalhos Submetidos</span>
+                    <span>Trabalhos Inscritos</span>
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                       activeView === 'DASHBOARD' ? 'bg-[#EA7600] text-white' : 'bg-slate-200 text-slate-700'
                     }`}>
@@ -161,7 +161,7 @@ export default function App() {
                 ) : (
                   <>
                     <Lock className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Trabalhos Submetidos (Acesso Restrito)</span>
+                    <span>Trabalhos Inscritos (Acesso Restrito)</span>
                   </>
                 )}
               </button>
@@ -175,7 +175,7 @@ export default function App() {
                 title="Consultar comprovante por protocolo ou CPF"
               >
                 <Search className="w-3.5 h-3.5" />
-                <span>Consultar Submissão</span>
+                <span>Consultar Inscrição</span>
               </button>
 
               {currentAdmin && (

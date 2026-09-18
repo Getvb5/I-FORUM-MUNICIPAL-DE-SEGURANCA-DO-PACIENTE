@@ -68,12 +68,17 @@ export const Footer: React.FC = () => {
           {/* Col 3: Contatos e Ouvidoria */}
           <div className="space-y-2.5">
             <h5 className="font-bold text-white uppercase tracking-wider text-[11px]">
-              Canais Institucionais
+              Canais Oficiais de Comunicação
             </h5>
             <ul className="space-y-2 text-slate-300">
               <li className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-[#3498FE] shrink-0" />
-                <span>segurancadopaciente@recife.pe.gov.br</span>
+                <a
+                  href="mailto:nsp.ggai@gmail.com"
+                  className="hover:text-white hover:underline transition"
+                >
+                  nsp.ggai@gmail.com
+                </a>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-[#3498FE] shrink-0" />

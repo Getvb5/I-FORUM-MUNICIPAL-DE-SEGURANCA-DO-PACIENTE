@@ -4,23 +4,23 @@ export const THEMATIC_AXES: ThematicAxis[] = [
   {
     id: 'EIXO_1',
     number: 1,
-    title: 'Eixo 1 – Gestão da Qualidade, Cultura de Segurança e Notificação de Incidentes',
-    description: 'Experiências focadas na estruturação de NSPs, protocolos municipais, cultura justa, gestão de riscos assistenciais e notificação/aprendizado com incidentes.',
-    maxSlots: 12
+    title: 'Eixo 1 – Segurança do Paciente: Cultura, Gestão de Riscos e Prevenção de Eventos Adversos',
+    description: 'Cultura de segurança, gestão de riscos assistenciais, notificação de incidentes, análise de causa raiz e gerenciamento de eventos adversos, incluindo prevenção de IRAS, erros de medicação, quedas, lesão por pressão e demais incidentes, com estratégias, protocolos e indicadores.',
+    maxSlots: 10
   },
   {
     id: 'EIXO_2',
     number: 2,
-    title: 'Eixo 2 – Boas Práticas Assistenciais e Segurança do Cuidado na Rede SUS Recife',
-    description: 'Práticas seguras na Atenção Primária, Média e Alta Complexidade, maternidades, urgências/SAMU, segurança medicamentosa, cirúrgica e prevenção de infecções.',
-    maxSlots: 12
+    title: 'Eixo 2 – Integração do Cuidado, Condições Crônicas e Participação do Paciente',
+    description: 'Continuidade e integração do cuidado entre níveis e pontos de atenção, e segurança no manejo de condições crônicas, com especial interesse no cuidado seguro às pessoas com DCNT (Campanha OMS 2026), além de comunicação efetiva, escuta ativa e participação do paciente e da família.',
+    maxSlots: 10
   },
   {
     id: 'EIXO_3',
     number: 3,
-    title: 'Eixo 3 – Formação, Integração Ensino-Serviço, Participação Social e Engajamento do Paciente',
-    description: 'Iniciativas de educação permanente, residências em saúde, envolvimento comunitário, direitos do usuário e produções criativas/artísticas.',
-    maxSlots: 12
+    title: 'Eixo 3 – Educação Permanente para o Fortalecimento da Cultura de Segurança do Paciente e da Melhoria Contínua da Qualidade',
+    description: 'Programas e estratégias de Educação Permanente voltados ao desenvolvimento de competências, à disseminação da cultura de segurança e à sustentação de processos de melhoria contínua.',
+    maxSlots: 10
   }
 ];
 
@@ -28,10 +28,12 @@ export const SUBMISSION_RULES = {
   maxAuthorsPerWork: 8,
   maxWorksAsMainAuthor: 2,
   maxWorksAsCoAuthor: 5,
-  slotsPerAxis: 12,
-  totalSlots: 36,
-  periodMinYear: 2023,
+  slotsPerAxis: 10,
+  totalSlots: 30,
+  periodMinYear: 2025,
   periodMaxYear: 2026,
+  officialTemplateUrl: 'https://drive.google.com/drive/folders/16zkWdZCD0aVKy7AbxmMM8pnQPej13NaO?usp=drive_link',
+  artisticTemplateUrl: 'https://drive.google.com/drive/folders/1hpvywu3Mqx8GNBOlrWq6gOAwiY6hO4Js?usp=drive_link',
   limits: {
     titleWords: 15,
     reportWhatWhyWords: 200,
@@ -66,9 +68,9 @@ export const PROFESSIONAL_BACKGROUND_OPTIONS = [
 ];
 
 export const FORUM_INFO = {
-  title: 'Submissão de Trabalhos na Oficina - I Fórum Municipal de Qualidade e Segurança do Paciente',
-  fullTitle: 'Inscrição e Submissão de Trabalhos na Oficina do I Fórum Municipal de Qualidade e Segurança do Paciente da Secretaria de Saúde do Recife',
-  subtitle: 'Relatos de Experiência e Produções Artísticas na Rede SUS Recife (2023 a 2026)',
+  title: 'Inscrição de Trabalhos na Oficina - I Fórum Municipal de Qualidade e Segurança do Paciente',
+  fullTitle: 'Inscrição de Trabalhos na Oficina do I Fórum Municipal de Qualidade e Segurança do Paciente da Secretaria de Saúde do Recife',
+  subtitle: 'Relatos de Experiência e Produções Artísticas na Rede SUS Recife (2025 a 2026)',
   year: '2026',
   organizer: 'Núcleo Municipal de Segurança do Paciente do Recife (NMSPR) - SERMAC/SEAB',
   organizerShort: 'NMSPR / SERMAC / SEAB',

@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = () => {
           <div className="flex items-center space-x-4 text-[11px] text-sky-200 font-medium">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#EA7600] animate-pulse"></span>
-              Submissão de Trabalhos Aberta
+              Inscrição de Trabalhos Aberta
             </span>
             <span className="hidden md:inline text-white/30">|</span>
             <span className="hidden md:flex items-center gap-1">

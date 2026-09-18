@@ -89,7 +89,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         <div className="bg-amber-50/80 border-b border-amber-200/80 p-3.5 px-5 text-xs text-amber-900 flex items-start gap-2.5">
           <ShieldCheck className="w-4 h-4 text-[#EA7600] shrink-0 mt-0.5" />
           <p className="leading-snug">
-            As informações de submissões (dados dos autores, CPFs, contatos e textos dos trabalhos) são de acesso exclusivo da <strong>Comissão Organizadora e Científica</strong>.
+            As informações de inscrições dos trabalhos (dados dos autores, CPFs, contatos e textos) são de acesso exclusivo da <strong>Comissão Organizadora e Científica</strong>.
           </p>
         </div>
 
@@ -161,7 +161,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               className="w-full py-2.5 px-4 rounded-xl bg-[#001B44] hover:bg-[#0A2D6C] text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
             >
               <Lock className="w-3.5 h-3.5 text-[#EA7600]" />
-              {isLoading ? 'Autenticando...' : 'Entrar no Painel de Submissões'}
+              {isLoading ? 'Autenticando...' : 'Entrar no Painel de Inscrições'}
             </button>
           </form>
 

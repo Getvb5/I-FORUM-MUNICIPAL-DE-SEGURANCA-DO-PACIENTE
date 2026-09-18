@@ -47,7 +47,7 @@ export const ConsultSubmissionModal: React.FC<ConsultSubmissionModalProps> = ({
     e.preventDefault();
     setErrorMsg(null);
     if (!searchTerm.trim()) {
-      setErrorMsg('Informe o CPF ou o número do Protocolo de Submissão.');
+      setErrorMsg('Informe o CPF ou o número do Protocolo de Inscrição.');
       return;
     }
     setHasSearched(true);
@@ -64,7 +64,7 @@ export const ConsultSubmissionModal: React.FC<ConsultSubmissionModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-white text-base font-display">
-                Consultar Submissão de Trabalhos
+                Consultar Inscrição de Trabalhos
               </h3>
               <p className="text-xs text-sky-200">
                 Oficina • I Fórum de Qualidade e Segurança do Paciente
@@ -122,7 +122,7 @@ export const ConsultSubmissionModal: React.FC<ConsultSubmissionModalProps> = ({
 
               {filtered.length === 0 ? (
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-600">
-                  Nenhum trabalho submetido encontrado para os dados informados. Verifique se o CPF ou protocolo está correto.
+                  Nenhum trabalho inscrito encontrado para os dados informados. Verifique se o CPF ou protocolo está correto.
                 </div>
               ) : (
                 <div className="space-y-2.5 max-h-72 overflow-y-auto">
