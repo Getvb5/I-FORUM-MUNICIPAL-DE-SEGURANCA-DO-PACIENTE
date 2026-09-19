@@ -11,7 +11,8 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Persistent Storage Directories and Files
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -308,7 +309,38 @@ app.post('/api/send-confirmation-email', async (req, res) => {
       });
     }
 
-    // 1. Envio automático via Resend com domínio @intelipay
+    // 1. Se o administrador configurou credenciais SMTP (ex: Gmail App Password, institucional), usar primeiro
+    const transporter = getSmtpTransporter();
+    let smtpErrorMessage: string | undefined;
+
+    if (transporter) {
+      try {
+        const user = process.env.SMTP_USER || process.env.GMAIL_USER;
+        const fromAddress = process.env.SMTP_FROM || `I Fórum de Qualidade e Segurança do Paciente <${user}>`;
+
+        const info = await transporter.sendMail({
+          from: fromAddress,
+          to: recipientEmail,
+          subject: subject,
+          html: htmlContent,
+          text: textContent || undefined
+        });
+
+        console.info(`[SMTP Sent] E-mail enviado com sucesso para ${recipientEmail} via SMTP (MessageId: ${info.messageId})`);
+        return res.json({
+          success: true,
+          delivered: true,
+          provider: 'SMTP',
+          messageId: info.messageId,
+          recipientEmail
+        });
+      } catch (smtpErr: any) {
+        console.error('[SMTP Error] Falha no envio via SMTP:', smtpErr);
+        smtpErrorMessage = smtpErr?.message;
+      }
+    }
+
+    // 2. Envio automático via Resend com domínio @intelipay
     const resend = getResendClient();
     let resendErrorMessage: string | undefined;
 
@@ -366,37 +398,6 @@ app.post('/api/send-confirmation-email', async (req, res) => {
 
       console.error('[Resend Error] Falha no disparo via Resend:', error);
       resendErrorMessage = error?.message;
-    }
-
-    // 2. Tentar envio via SMTP / Nodemailer como fallback secundário caso configurado
-    const transporter = getSmtpTransporter();
-    let smtpErrorMessage: string | undefined;
-
-    if (transporter) {
-      try {
-        const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-        const fromAddress = process.env.SMTP_FROM || `I Fórum de Qualidade e Segurança do Paciente <${user}>`;
-
-        const info = await transporter.sendMail({
-          from: fromAddress,
-          to: recipientEmail,
-          subject: subject,
-          html: htmlContent
-        });
-
-        console.info(`[SMTP Sent] Mensagem enviada automaticamente para ${recipientEmail} (ID: ${info.messageId})`);
-
-        return res.json({
-          success: true,
-          delivered: true,
-          provider: 'SMTP',
-          messageId: info.messageId,
-          recipientEmail
-        });
-      } catch (smtpErr: any) {
-        console.error('[SMTP Error] Falha no envio via SMTP:', smtpErr);
-        smtpErrorMessage = smtpErr?.message || 'Falha ao autenticar ou conectar no servidor SMTP.';
-      }
     }
 
     // Se o Resend teve erro

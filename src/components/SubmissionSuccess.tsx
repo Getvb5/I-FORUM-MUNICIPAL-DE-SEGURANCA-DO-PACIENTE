@@ -19,7 +19,8 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
-  Check
+  Check,
+  Share2
 } from 'lucide-react';
 import { WorkSubmissionData } from '../types';
 import { FORUM_INFO } from '../data/forumInfo';
@@ -49,6 +50,11 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     }
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = `*COMPROVANTE OFICIAL DE INSCRIÇÃO DE TRABALHO*\n*I Fórum de Qualidade e Segurança do Paciente - SUS Recife*\n\n📌 *Protocolo:* ${submission.protocolNumber}\n📚 *Eixo:* ${submission.thematicAxisLabel}\n📑 *Título:* ${submission.title}\n👤 *Autor(a) Principal:* ${submission.mainAuthor.fullName}\n🏢 *Unidade/Lotação:* ${submission.mainAuthor.workLocation}\n📅 *Apresentação Presencial:* 30/09/2026 das 08h às 17h\n📍 *Local:* ${FORUM_INFO.locationVenue} (${FORUM_INFO.locationAddress})\n\n_Comprovante emitido pela Escola de Saúde do Recife (ESR/SEGTES)._`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const googleCalUrl = generateGoogleCalendarUrl();
@@ -82,7 +88,16 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+        <div className="flex flex-wrap items-center gap-2 self-end sm:self-center shrink-0">
+          <button
+            type="button"
+            onClick={handleShareWhatsApp}
+            className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer border border-emerald-500"
+          >
+            <Share2 className="w-4 h-4 text-emerald-200" />
+            Enviar no WhatsApp
+          </button>
+
           <button
             type="button"
             onClick={handlePrint}

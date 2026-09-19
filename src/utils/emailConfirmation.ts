@@ -828,7 +828,10 @@ export async function sendSubmissionConfirmationEmail(submission: WorkSubmission
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          submission,
+          protocolNumber: submission.protocolNumber,
+          thematicAxis: submission.thematicAxis,
+          thematicAxisLabel: submission.thematicAxisLabel,
+          title: submission.title,
           recipientEmail: recipient.email,
           recipientName: recipient.name,
           recipientRole: recipient.role,

@@ -3,6 +3,26 @@ import { WorkSubmissionData } from '../types';
 const SUBMISSIONS_STORAGE_KEY = 'sesau_recife_forum_submissions_2026';
 
 /**
+ * Remove buffers pesados de base64 (dataUrl) do localStorage para não estourar a cota de 5MB do navegador.
+ */
+function sanitizeForLocalStorage(list: WorkSubmissionData[]): WorkSubmissionData[] {
+  return list.map((item) => {
+    if (item.attachedFile && item.attachedFile.dataUrl && item.attachedFile.dataUrl.length > 100000) {
+      return {
+        ...item,
+        attachedFile: {
+          name: item.attachedFile.name,
+          size: item.attachedFile.size,
+          type: item.attachedFile.type,
+          dimensions: item.attachedFile.dimensions
+        }
+      };
+    }
+    return item;
+  });
+}
+
+/**
  * Busca todas as submissões no servidor (fonte oficial da verdade).
  * Caso o servidor esteja temporariamente inacessível, recorre ao cache do localStorage.
  */
@@ -13,9 +33,9 @@ export async function fetchServerSubmissions(): Promise<WorkSubmissionData[]> {
       const result = await response.json();
       if (result.success && Array.isArray(result.data)) {
         const serverData: WorkSubmissionData[] = result.data;
-        // Atualiza cache local
+        // Atualiza cache local de forma leve
         try {
-          localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(serverData));
+          localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(sanitizeForLocalStorage(serverData)));
         } catch (e) {
           console.warn('Falha ao atualizar cache local:', e);
         }
@@ -46,17 +66,17 @@ export async function fetchServerSubmissions(): Promise<WorkSubmissionData[]> {
 export async function saveServerSubmission(
   submission: WorkSubmissionData
 ): Promise<{ success: boolean; data?: WorkSubmissionData; error?: string }> {
-  // 1. Atualizar cache local imediatamente para feedback instantâneo
+  // 1. Atualizar cache local imediatamente para feedback instantâneo (sanitizado)
   try {
     const cached = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
     const list: WorkSubmissionData[] = cached ? JSON.parse(cached) : [];
     const updated = [submission, ...list.filter((s) => s.id !== submission.id)];
-    localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(sanitizeForLocalStorage(updated)));
   } catch (e) {
-    console.warn('Erro ao salvar no cache local:', e);
+    console.warn('Aviso ao salvar no cache local:', e);
   }
 
-  // 2. Persistir no servidor
+  // 2. Persistir no servidor oficial
   try {
     const response = await fetch('/api/submissions', {
       method: 'POST',
