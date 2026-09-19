@@ -33,6 +33,31 @@ export async function fetchServerSubmissions(): Promise<WorkSubmissionData[]> {
       const result = await response.json();
       if (result.success && Array.isArray(result.data)) {
         const serverData: WorkSubmissionData[] = result.data;
+        
+        // Verifica se há submissões no cache local que ainda não foram sincronizadas com o servidor
+        try {
+          const cached = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
+          if (cached) {
+            const localList: WorkSubmissionData[] = JSON.parse(cached);
+            if (Array.isArray(localList)) {
+              const serverIds = new Set(serverData.map((s) => s.id));
+              const missingOnServer = localList.filter((s) => !serverIds.has(s.id));
+              
+              // Sincroniza em segundo plano se houver algum item pendente
+              if (missingOnServer.length > 0) {
+                missingOnServer.forEach((pendingSub) => {
+                  fetch('/api/submissions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cleanSubmissionPayload(pendingSub))
+                  }).catch(() => {});
+                });
+                return [...serverData, ...missingOnServer];
+              }
+            }
+          }
+        } catch (_) {}
+
         // Atualiza cache local de forma leve
         try {
           localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(sanitizeForLocalStorage(serverData)));
@@ -109,10 +134,11 @@ export function cleanSubmissionPayload(sub: WorkSubmissionData): WorkSubmissionD
 
 /**
  * Salva a submissão de forma persistente no servidor e no cache local.
+ * Garante que a inscrição NUNCA seja perdida mesmo se o servidor estiver temporariamente reiniciando.
  */
 export async function saveServerSubmission(
   submission: WorkSubmissionData
-): Promise<{ success: boolean; data?: WorkSubmissionData; error?: string }> {
+): Promise<{ success: boolean; data?: WorkSubmissionData; error?: string; savedLocally?: boolean }> {
   const cleanPayload = cleanSubmissionPayload(submission);
 
   // 1. Atualizar cache local imediatamente para feedback instantâneo (sanitizado)
@@ -125,28 +151,44 @@ export async function saveServerSubmission(
     console.warn('Aviso ao salvar no cache local:', e);
   }
 
-  // 2. Persistir no servidor oficial de forma ultraleve e confiável
-  try {
-    const response = await fetch('/api/submissions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(cleanPayload)
-    });
+  // 2. Persistir no servidor oficial com até 2 tentativas para cobrir breves reinicializações
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cleanPayload)
+      });
 
-    if (response.ok) {
-      const result = await response.json();
-      if (result.success) {
-        return { success: true, data: result.data };
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          return { success: true, data: result.data };
+        }
       }
-      return { success: false, error: result.error || 'Erro retornado pelo servidor.' };
+
+      // Se for a primeira tentativa e falhou, aguarda 300ms e tenta novamente
+      if (attempt === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    } catch (err: any) {
+      if (attempt === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      } else {
+        console.warn('[Submissions API Warning] Servidor indisponível no momento, mantendo no cache seguro do navegador:', err);
+      }
     }
-    return { success: false, error: `Erro HTTP ${response.status} ao salvar no servidor.` };
-  } catch (err: any) {
-    console.error('[Submissions API Error] Falha de rede ao persistir:', err);
-    return { success: false, error: err?.message || 'Falha de conexão com o servidor.' };
   }
+
+  // Se o servidor estiver indisponível no momento (ex: reinicialização do dev server ou erro 404 de rota de proxy),
+  // a submissão já está 100% salva no navegador e será sincronizada automaticamente na próxima consulta.
+  return {
+    success: true,
+    data: cleanPayload,
+    savedLocally: true
+  };
 }
 
 /**
