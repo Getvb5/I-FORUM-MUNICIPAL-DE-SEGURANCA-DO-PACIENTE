@@ -354,15 +354,89 @@ app.post('/api/registrations', (req, res) => {
 
 // API Send Confirmation Email Endpoint
 app.post('/api/send-confirmation-email', async (req, res) => {
+  res.type('application/json');
   try {
-    const { submission, registration, recipientEmail, recipientName, recipientRole, htmlContent, textContent, subject } = req.body;
+    const { submission, registration, recipientEmail, recipientName, recipientRole, htmlContent, textContent, subject, protocolNumber, title, thematicAxisLabel } = req.body || {};
 
-    if (!recipientEmail || !subject || !htmlContent) {
+    if (!recipientEmail || typeof recipientEmail !== 'string' || !recipientEmail.includes('@')) {
       return res.status(400).json({
         success: false,
-        error: 'Campos obrigatórios ausentes: recipientEmail, subject ou htmlContent.'
+        delivered: false,
+        error: 'Endereço de e-mail do destinatário inválido ou não informado.'
       });
     }
+
+    const proto = protocolNumber || submission?.protocolNumber || registration?.protocolNumber || 'FORUM-2026';
+    const effectiveSubject = subject || `Confirmação de Inscrição: ${proto} - I Fórum de Qualidade e Segurança do Paciente`;
+    const targetName = recipientName || submission?.mainAuthor?.fullName || registration?.fullName || 'Participante';
+    const effectiveRole = recipientRole || (registration ? 'Participante (Ouvinte)' : 'Autor(a) Principal');
+
+    const effectiveHtml = htmlContent || `
+      <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 640px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+        <div style="background-color: #001B44; color: #ffffff; padding: 24px; text-align: center; border-bottom: 5px solid #EA7600;">
+          <span style="display: inline-block; background-color: rgba(234, 118, 0, 0.25); color: #FF9B38; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;">
+            SUS RECIFE • CONFIRMAÇÃO OFICIAL
+          </span>
+          <h1 style="margin: 0 0 6px 0; font-size: 20px; color: #ffffff;">
+            I Fórum Municipal de Qualidade e Segurança do Paciente
+          </h1>
+          <p style="margin: 0; color: #93c5fd; font-size: 13px; font-weight: bold;">
+            Comprovante Oficial de Inscrição • Protocolo ${proto}
+          </p>
+        </div>
+        <div style="padding: 24px;">
+          <p style="font-size: 15px; margin-top: 0; color: #001B44;">
+            Olá, <strong>${targetName}</strong> (${effectiveRole}),
+          </p>
+          <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+            Confirmamos com sucesso o recebimento da sua inscrição no <strong>I Fórum Municipal de Qualidade e Segurança do Paciente</strong> da Secretaria de Saúde do Recife.
+          </p>
+          <div style="background: linear-gradient(135deg, #001B44 0%, #08285c 100%); color: #ffffff; padding: 18px 20px; border-radius: 10px; margin: 20px 0; border-left: 6px solid #EA7600;">
+            <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #93c5fd; font-weight: bold; display: block;">
+              Protocolo Oficial de Inscrição
+            </span>
+            <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #ffffff;">
+              ${proto}
+            </span>
+          </div>
+          ${title || submission?.title ? `<p style="font-size: 14px; color: #001B44;"><strong>Título do Trabalho:</strong> ${title || submission?.title}</p>` : ''}
+          ${thematicAxisLabel || submission?.thematicAxisLabel ? `<p style="font-size: 13px; color: #475569;"><strong>Eixo Temático:</strong> ${thematicAxisLabel || submission?.thematicAxisLabel}</p>` : ''}
+          <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px; margin: 20px 0;">
+            <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #1e40af; text-transform: uppercase; font-weight: bold;">
+              Informações do Evento Presencial
+            </h4>
+            <p style="margin: 0; font-size: 13px; color: #1e3a8a; line-height: 1.6;">
+              <strong>Data:</strong> 30 de Setembro de 2026 (Quarta-feira)<br/>
+              <strong>Horário:</strong> 08h00 às 17h00 (Credenciamento a partir das 07h30)<br/>
+              <strong>Local:</strong> Auditório da Interne Soluções em Saúde<br/>
+              <strong>Endereço:</strong> Rua Marquês Amorim, 356 - Boa Vista, Recife/PE (CEP: 50070-330)<br/>
+              <strong>Certificação:</strong> 8 Horas emitida pela Escola de Saúde do Recife (ESR/SEGTES)
+            </p>
+          </div>
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b;">
+            <p style="margin: 0;"><strong>Secretaria de Saúde da Cidade do Recife</strong></p>
+            <p style="margin: 2px 0 0 0;">Núcleo Municipal de Segurança do Paciente (NMSPR) • Coordenação do Fórum</p>
+            <p style="margin: 4px 0 0 0;">Dúvidas ou orientações: <a href="mailto:nsp.ggai@gmail.com" style="color: #0284c7; text-decoration: none;">nsp.ggai@gmail.com</a></p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const effectiveText = textContent || `
+PREFEITURA DA CIDADE DO RECIFE • SECRETARIA DE SAÚDE
+I FÓRUM MUNICIPAL DE QUALIDADE E SEGURANÇA DO PACIENTE
+
+Prezado(a) ${targetName},
+
+Confirmamos com sucesso sua inscrição!
+Protocolo Oficial: ${proto}
+${title || submission?.title ? `Título: ${title || submission?.title}\n` : ''}
+Data do Evento: 30 de Setembro de 2026 | 08h00 às 17h00
+Local: Auditório da Interne Soluções em Saúde - Rua Marquês Amorim, 356, Boa Vista, Recife/PE.
+Certificação: 8 Horas emitida pela Escola de Saúde do Recife (ESR/SEGTES).
+
+Dúvidas: nsp.ggai@gmail.com
+    `.trim();
 
     // 1. Se o administrador configurou credenciais SMTP (ex: Gmail App Password, institucional), usar primeiro
     const transporter = getSmtpTransporter();
@@ -376,9 +450,9 @@ app.post('/api/send-confirmation-email', async (req, res) => {
         const info = await transporter.sendMail({
           from: fromAddress,
           to: recipientEmail,
-          subject: subject,
-          html: htmlContent,
-          text: textContent || undefined
+          subject: effectiveSubject,
+          html: effectiveHtml,
+          text: effectiveText
         });
 
         console.info(`[SMTP Sent] E-mail enviado com sucesso para ${recipientEmail} via SMTP (MessageId: ${info.messageId})`);
@@ -406,9 +480,9 @@ app.post('/api/send-confirmation-email', async (req, res) => {
       let { data, error } = await resend.emails.send({
         from: fromEmail,
         to: recipientEmail,
-        subject: subject,
-        html: htmlContent,
-        text: textContent || undefined,
+        subject: effectiveSubject,
+        html: effectiveHtml,
+        text: effectiveText,
         replyTo: 'forum@intelipay-sesau.com.br'
       });
 
@@ -428,8 +502,8 @@ app.post('/api/send-confirmation-email', async (req, res) => {
           const retry = await resend.emails.send({
             from: candidate,
             to: recipientEmail,
-            subject: subject,
-            html: htmlContent
+            subject: effectiveSubject,
+            html: effectiveHtml
           });
           if (!retry.error && retry.data?.id) {
             data = retry.data;
@@ -463,7 +537,7 @@ app.post('/api/send-confirmation-email', async (req, res) => {
         provider: 'RESEND',
         error: resendErrorMessage,
         recipientEmail,
-        message: `Falha no envio automático via Resend (@intelipay): ${resendErrorMessage}`
+        message: `Falha no envio automático via Resend: ${resendErrorMessage}`
       });
     }
 

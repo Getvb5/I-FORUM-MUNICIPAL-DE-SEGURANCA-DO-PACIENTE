@@ -25,6 +25,14 @@ import {
 import { WorkSubmissionData } from '../types';
 import { FORUM_INFO } from '../data/forumInfo';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
+import {
+  generateEmailHtml,
+  generatePlainTextReceipt,
+  generateExecutiveReceiptText,
+  generateGmailWebLink,
+  generateMailtoLink,
+  saveEmailLog
+} from '../utils/emailConfirmation';
 
 interface SubmissionSuccessProps {
   submission: WorkSubmissionData;
@@ -38,12 +46,15 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
   onOpenConsult
 }) => {
   const [copied, setCopied] = useState(false);
+  const [copiedReceipt, setCopiedReceipt] = useState(false);
   const [showFullReport, setShowFullReport] = useState(true);
   const [resending, setResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<{
     success: boolean;
     message: string;
     messageId?: string;
+    showDirectOptions?: boolean;
+    targetEmail?: string;
   } | null>(null);
   const [customEmail, setCustomEmail] = useState(submission.mainAuthor.email);
   const [showEmailInput, setShowEmailInput] = useState(false);
@@ -60,20 +71,33 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
     }
   };
 
+  const handleCopyReceiptText = () => {
+    const plainText = generatePlainTextReceipt(submission, submission.mainAuthor.fullName);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(plainText);
+      setCopiedReceipt(true);
+      setTimeout(() => setCopiedReceipt(false), 3000);
+    }
+  };
+
   const handleResendEmail = async (targetEmail?: string) => {
     const emailToSend = (targetEmail || customEmail || submission.mainAuthor.email).trim();
     if (!emailToSend || !emailToSend.includes('@')) {
-      setResendStatus({ success: false, message: 'Informe um endereço de e-mail válido.' });
+      setResendStatus({ success: false, message: 'Informe um endereço de e-mail válido.', showDirectOptions: false });
       return;
     }
     setResending(true);
     setResendStatus(null);
     try {
       const subject = `Confirmação de Inscrição: ${submission.protocolNumber} - I Fórum de Qualidade e Segurança do Paciente`;
+      const htmlContent = generateEmailHtml(submission, submission.mainAuthor.fullName, 'Autor(a) Principal');
+      const textContent = generatePlainTextReceipt(submission, submission.mainAuthor.fullName);
+
       const response = await fetch('/api/send-confirmation-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          submission,
           protocolNumber: submission.protocolNumber,
           thematicAxis: submission.thematicAxis,
           thematicAxisLabel: submission.thematicAxisLabel,
@@ -81,26 +105,53 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
           recipientEmail: emailToSend,
           recipientName: submission.mainAuthor.fullName,
           recipientRole: 'Autor(a) Principal',
-          subject
+          subject,
+          htmlContent,
+          textContent
         })
       });
-      const data = await response.json();
-      if (data.delivered) {
+
+      let data: any = null;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+      }
+
+      if (response.ok && data?.delivered) {
         setResendStatus({
           success: true,
           message: `E-mail entregue com sucesso para ${emailToSend}!`,
-          messageId: data.messageId
+          messageId: data.messageId,
+          targetEmail: emailToSend,
+          showDirectOptions: false
+        });
+      } else if (response.ok && data?.success) {
+        setResendStatus({
+          success: true,
+          message: data.message || `E-mail registrado com sucesso para ${emailToSend}!`,
+          messageId: data.messageId,
+          targetEmail: emailToSend,
+          showDirectOptions: false
         });
       } else {
+        const errorMsg = data?.error || data?.message || 'O serviço de e-mail está processando. Você também pode enviar diretamente pelo seu Gmail com 1 clique abaixo.';
         setResendStatus({
           success: false,
-          message: data.message || data.error || 'Não foi possível entregar o e-mail.'
+          message: errorMsg,
+          targetEmail: emailToSend,
+          showDirectOptions: true
         });
       }
     } catch (err: any) {
       setResendStatus({
         success: false,
-        message: `Falha na requisição: ${err.message}`
+        message: 'A requisição automática oscilou na rede. Você pode disparar o comprovante diretamente pelo Gmail Web ou seu aplicativo de e-mail com 1 clique:',
+        targetEmail: emailToSend,
+        showDirectOptions: true
       });
     } finally {
       setResending(false);
@@ -182,12 +233,12 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleResendEmail(submission.mainAuthor.email)}
                   disabled={resending}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
                 >
                   {resending ? (
                     <>
@@ -201,6 +252,20 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                     </>
                   )}
                 </button>
+
+                <a
+                  href={generateGmailWebLink(
+                    submission.mainAuthor.email,
+                    `Confirmação de Inscrição: ${submission.protocolNumber} - I Fórum de Qualidade e Segurança do Paciente`,
+                    generateExecutiveReceiptText(submission, submission.mainAuthor.fullName)
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#001B44] text-xs font-bold transition flex items-center gap-1.5 border border-slate-300"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-[#EA7600]" />
+                  Abrir no Gmail Web
+                </a>
 
                 <button
                   type="button"
@@ -223,13 +288,13 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                 <label className="block text-xs font-bold text-slate-700">
                   Enviar cópia para outro e-mail:
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input
                     type="email"
                     value={customEmail}
                     onChange={(e) => setCustomEmail(e.target.value)}
                     placeholder="Digite o e-mail (ex: Getvb98@gmail.com)"
-                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="flex-1 min-w-[220px] px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
                   <button
                     type="button"
@@ -239,36 +304,103 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                   >
                     {resending ? 'Enviando...' : 'Enviar Cópia'}
                   </button>
+                  <a
+                    href={generateGmailWebLink(
+                      customEmail,
+                      `Confirmação de Inscrição: ${submission.protocolNumber} - I Fórum de Qualidade e Segurança do Paciente`,
+                      generateExecutiveReceiptText(submission, submission.mainAuthor.fullName)
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#001B44] text-xs font-bold rounded-lg transition border border-slate-300 flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-[#EA7600]" />
+                    Gmail
+                  </a>
                 </div>
               </div>
             )}
 
             {/* Resend Status Banner */}
             {resendStatus && (
-              <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+              <div className={`p-3.5 rounded-xl text-xs space-y-2 ${
                 resendStatus.success
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                  : 'bg-rose-50 text-rose-800 border border-rose-300'
+                  ? 'bg-emerald-50 text-emerald-900 border border-emerald-300'
+                  : 'bg-amber-50 text-amber-950 border border-amber-300'
               }`}>
-                {resendStatus.success ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                ) : (
-                  <span className="text-rose-600 shrink-0 font-black">✕</span>
-                )}
-                <div className="flex-1">
-                  <span>{resendStatus.message}</span>
-                  {resendStatus.messageId && (
-                    <span className="block text-[10px] text-emerald-600 font-mono mt-0.5">
-                      ID de Entrega Resend: {resendStatus.messageId}
-                    </span>
+                <div className="flex items-center gap-2">
+                  {resendStatus.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <span className="text-amber-700 shrink-0 font-black text-sm">ℹ️</span>
                   )}
+                  <div className="flex-1 font-semibold">
+                    <span>{resendStatus.message}</span>
+                    {resendStatus.messageId && (
+                      <span className="block text-[10px] text-emerald-700 font-mono mt-0.5">
+                        ID de Entrega: {resendStatus.messageId}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Direct 1-click fallback buttons when needed */}
+                {resendStatus.showDirectOptions && (
+                  <div className="pt-2 border-t border-amber-200/80 flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-700 w-full">
+                      Opções diretas de envio sem depender do servidor:
+                    </span>
+                    <a
+                      href={generateGmailWebLink(
+                        resendStatus.targetEmail || submission.mainAuthor.email,
+                        `Confirmação de Inscrição: ${submission.protocolNumber} - I Fórum de Qualidade e Segurança do Paciente`,
+                        generateExecutiveReceiptText(submission, submission.mainAuthor.fullName)
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-[#001B44] text-xs font-bold shadow-2xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-[#EA7600]" />
+                      Abrir no Gmail Web
+                    </a>
+
+                    <a
+                      href={generateMailtoLink(
+                        resendStatus.targetEmail || submission.mainAuthor.email,
+                        `Confirmação de Inscrição: ${submission.protocolNumber} - I Fórum de Qualidade e Segurança do Paciente`,
+                        generateExecutiveReceiptText(submission, submission.mainAuthor.fullName)
+                      )}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-[#001B44] text-xs font-bold shadow-2xs"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-[#3498FE]" />
+                      Enviar via Outlook / App de E-mail
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyReceiptText}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-[#001B44] text-xs font-bold shadow-2xs cursor-pointer"
+                    >
+                      {copiedReceipt ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700">Texto Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-slate-600" />
+                          <span>Copiar Texto do Comprovante</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            <div className="text-[11px] bg-amber-50 text-amber-900 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
-              <span className="font-bold shrink-0">⚠️ Dica:</span>
-              <span>Caso não localize o e-mail na Caixa de Entrada em instantes, confira a pasta <strong>Spam / Lixo Eletrônico</strong> de <em>{submission.mainAuthor.email}</em>.</span>
+            <div className="text-[11px] bg-sky-50 text-sky-950 border border-sky-200 rounded-lg p-2.5 flex items-start gap-2">
+              <span className="font-bold shrink-0">💡 Dica:</span>
+              <span>Caso não localize o e-mail na Caixa de Entrada em instantes, confira a pasta <strong>Spam / Lixo Eletrônico</strong> de <em>{submission.mainAuthor.email}</em> ou use o botão <strong>Abrir no Gmail Web</strong> acima.</span>
             </div>
           </div>
         </div>
