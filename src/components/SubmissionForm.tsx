@@ -114,7 +114,45 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingStep, setSubmittingStep] = useState<string>('');
   const [showCnesList, setShowCnesList] = useState(false);
+
+  // Preenchimento de teste rápido com 1 clique (para testes e validação de homologação)
+  const handleFillTestData = () => {
+    setThematicAxis('EIXO_1');
+    setModality('RELATO_EXPERIENCIA');
+    setTitle('Implementação do Protocolo de Cirurgia Segura na Rede Municipal');
+    setDevelopmentPeriod('2025');
+    setMainAuthor({
+      id: 'author_main',
+      fullName: 'Getúlio Batista',
+      cpf: '098.765.432-10',
+      email: 'Getvb98@gmail.com',
+      phone: '(81) 98765-4321',
+      sesauMatricula: '12345-6',
+      professionalBackground: 'Enfermagem',
+      roleOrFunction: 'Coordenador(a) de Enfermagem',
+      workLocation: 'Hospital da Restauração - SESAU Recife',
+      cnesUnit: 'HOSPITAL DA RESTAURACAO',
+      authorType: 'PROFISSIONAL_GESTOR',
+      isMainAuthor: true
+    });
+    setCoAuthors([]);
+    setReportWhatWhy('Implantação da lista de verificação de cirurgia segura do Ministério da Saúde e OMS no centro cirúrgico municipal.');
+    setReportHowDeveloped('Oficinas com as equipes médica e de enfermagem com checagem dos três momentos cirúrgicos em todas as salas.');
+    setReportWhatLearned('A padronização das etapas de identificação e contagem de materiais reduziu sensivelmente a ocorrência de quase-falhas.');
+    setReportChallenges('Engajamento inicial de alguns cirurgiões à pausa cirúrgica antes da incisão da pele.');
+    setReportLikedDisliked('Excelente acolhimento pela equipe assistencial e aumento da sensação de segurança entre os pacientes.');
+    setReportWhatCanBeDone('Informatização do formulário em prontuário eletrônico e treinamento continuado para novos residentes.');
+    setReportReferences('ORGANIZAÇÃO MUNDIAL DA SAÚDE. Segundo desafio global para a segurança do paciente: cirurgias seguras salvam vidas. Rio de Janeiro: OPAS, 2009. BRASIL. Ministério da Saúde. Portaria nº 529/2013.');
+    setAttachedFile({
+      name: 'Modelo_Oficial_Slides_Cirurgia_Segura.pptx',
+      size: 245000,
+      type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    });
+    setTermsAccepted(true);
+    setGeneralError(null);
+  };
 
   // Word limits calculations
   const titleStatus = getWordCountStatus(title, SUBMISSION_RULES.limits.titleWords);
@@ -231,6 +269,16 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
     }
   };
 
+  const triggerError = (msg: string) => {
+    setGeneralError(msg);
+    setIsSubmitting(false);
+    setSubmittingStep('');
+    const el = document.getElementById('form-submissao-trabalho');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   // Form submission validation
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,33 +286,33 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
 
     // 1. Title validation
     if (!title.trim()) {
-      setGeneralError('Por favor, informe o título do trabalho.');
+      triggerError('Por favor, informe o título do trabalho.');
       return;
     }
     if (titleStatus.isOver) {
-      setGeneralError(`O título do trabalho excede o limite máximo de 15 palavras (${titleStatus.count} palavras informadas).`);
+      triggerError(`O título do trabalho excede o limite máximo de 15 palavras (${titleStatus.count} palavras informadas).`);
       return;
     }
 
     // 2. Main Author validation
     if (!mainAuthor.fullName.trim() || !mainAuthor.cpf.trim() || !mainAuthor.email.trim() || !mainAuthor.phone.trim()) {
-      setGeneralError('Preencha todos os dados obrigatórios do(a) Autor(a) Principal.');
+      triggerError('Preencha todos os dados obrigatórios do(a) Autor(a) Principal.');
       return;
     }
     if (!isValidCPF(mainAuthor.cpf)) {
-      setGeneralError('O CPF do(a) Autor(a) Principal é inválido.');
+      triggerError('O CPF do(a) Autor(a) Principal é inválido.');
       return;
     }
     if (!mainAuthor.professionalBackground) {
-      setGeneralError('Informe a formação profissional do(a) Autor(a) Principal.');
+      triggerError('Informe a formação profissional do(a) Autor(a) Principal.');
       return;
     }
     if (!mainAuthor.roleOrFunction.trim()) {
-      setGeneralError('Informe o cargo ou função do(a) Autor(a) Principal.');
+      triggerError('Informe o cargo ou função do(a) Autor(a) Principal.');
       return;
     }
     if (!mainAuthor.workLocation.trim()) {
-      setGeneralError('Informe o local de atuação do(a) Autor(a) Principal.');
+      triggerError('Informe o local de atuação do(a) Autor(a) Principal.');
       return;
     }
 
@@ -275,13 +323,13 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
     ).length;
 
     if (mainAuthorSubmissionsCount >= SUBMISSION_RULES.maxWorksAsMainAuthor) {
-      setGeneralError(`Limite de submissões excedido (Item 7.6): O CPF ${formattedMainCpf} já possui 2 trabalhos inscritos como autor principal.`);
+      triggerError(`Limite de submissões excedido (Item 7.6): O CPF ${formattedMainCpf} já possui 2 trabalhos inscritos como autor principal.`);
       return;
     }
 
     // 4. Eligibility check (item 7.1)
     if (mainAuthorIsStudentOrResident && !hasLinkedProfessional) {
-      setGeneralError('Conforme o item 7.1 do Edital, trabalhos submetidos por estudantes ou residentes devem conter ao menos um/a profissional ou gestor/a vinculado/a à Rede de Saúde do Recife na lista de coautores.');
+      triggerError('Conforme o item 7.1 do Edital, trabalhos submetidos por estudantes ou residentes devem conter ao menos um/a profissional ou gestor/a vinculado/a à Rede de Saúde do Recife na lista de coautores.');
       return;
     }
 
@@ -289,15 +337,15 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
     for (let i = 0; i < coAuthors.length; i++) {
       const co = coAuthors[i];
       if (!co.fullName.trim()) {
-        setGeneralError(`Preencha o nome completo do coautor #${i + 1}.`);
+        triggerError(`Preencha o nome completo do coautor #${i + 1}.`);
         return;
       }
       if (!co.cpf.trim() || !isValidCPF(co.cpf)) {
-        setGeneralError(`O CPF do coautor #${i + 1} (${co.fullName || 'Sem nome'}) é inválido.`);
+        triggerError(`O CPF do coautor #${i + 1} (${co.fullName || 'Sem nome'}) é inválido.`);
         return;
       }
       if (!co.email.trim() || !co.phone.trim()) {
-        setGeneralError(`Preencha o e-mail e telefone do coautor #${i + 1}.`);
+        triggerError(`Preencha o e-mail e telefone do coautor #${i + 1}.`);
         return;
       }
     }
@@ -305,69 +353,70 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
     // 6. Modality-specific validations
     if (modality === 'RELATO_EXPERIENCIA') {
       if (!reportWhatWhy.trim() || !reportHowDeveloped.trim() || !reportWhatLearned.trim() || !reportChallenges.trim() || !reportLikedDisliked.trim() || !reportWhatCanBeDone.trim()) {
-        setGeneralError('Preencha todos os 6 campos obrigatórios do Roteiro para Relatos de Experiência (Anexo A).');
+        triggerError('Preencha todos os 6 campos obrigatórios do Roteiro para Relatos de Experiência (Anexo A).');
         return;
       }
 
       if (!reportReferences.trim()) {
-        setGeneralError('O campo de Referências é obrigatório para o Relato de Experiência (item obrigatório, sem limites de palavras).');
+        triggerError('O campo de Referências é obrigatório para o Relato de Experiência (item obrigatório, sem limites de palavras).');
         return;
       }
 
       if (!attachedFile) {
-        setGeneralError('O anexo dos slides do Relato de Experiência (PPT ou PDF) é obrigatório. Por favor, baixe o modelo oficial e anexe seu arquivo antes de prosseguir.');
+        triggerError('O anexo dos slides do Relato de Experiência (PPT ou PDF) é obrigatório. Por favor, baixe o modelo oficial e anexe seu arquivo antes de prosseguir.');
         return;
       }
 
       if (whatWhyStatus.isOver || howDevelopedStatus.isOver || whatLearnedStatus.isOver || challengesStatus.isOver || likedDislikedStatus.isOver || whatCanBeDoneStatus.isOver) {
-        setGeneralError('Um ou mais campos do Relato de Experiência ultrapassam o limite de palavras estipulado no Anexo A.');
+        triggerError('Um ou mais campos do Relato de Experiência ultrapassam o limite de palavras estipulado no Anexo A.');
         return;
       }
 
       if (isReportTotalOver) {
-        setGeneralError(`O relato ultrapassa o limite total de 1.000 palavras (atual: ${totalReportWords} palavras). Reduza o texto antes de enviar.`);
+        triggerError(`O relato ultrapassa o limite total de 1.000 palavras (atual: ${totalReportWords} palavras). Reduza o texto antes de enviar.`);
         return;
       }
     } else {
       // Produção Artística
       if (!artisticCreationContext.trim()) {
-        setGeneralError('Informe o contexto de criação da Produção Artística (Anexo B).');
+        triggerError('Informe o contexto de criação da Produção Artística (Anexo B).');
         return;
       }
       if (artisticContextStatus.isOver) {
-        setGeneralError(`O contexto de criação ultrapassa o limite máximo de 300 palavras (atual: ${artisticContextStatus.count} palavras).`);
+        triggerError(`O contexto de criação ultrapassa o limite máximo de 300 palavras (atual: ${artisticContextStatus.count} palavras).`);
         return;
       }
 
       if (!artisticReferences.trim()) {
-        setGeneralError('O campo de Referências é obrigatório para a Produção Artística (item obrigatório, sem limites de palavras).');
+        triggerError('O campo de Referências é obrigatório para a Produção Artística (item obrigatório, sem limites de palavras).');
         return;
       }
 
       if (['Texto Literário', 'Cordel', 'Poesia'].includes(artisticCategory)) {
         if (!artisticTextContent.trim() && !attachedFile) {
-          setGeneralError('Digite o texto/cordel/poesia no campo correspondente ou anexe o arquivo (DOCX/PDF).');
+          triggerError('Digite o texto/cordel/poesia no campo correspondente ou anexe o arquivo (DOCX/PDF).');
           return;
         }
         if (artisticTextStatus.isOver) {
-          setGeneralError(`O texto da produção artística ultrapassa o limite de 1.000 palavras (atual: ${artisticTextStatus.count} palavras).`);
+          triggerError(`O texto da produção artística ultrapassa o limite de 1.000 palavras (atual: ${artisticTextStatus.count} palavras).`);
           return;
         }
       }
 
       if (!attachedFile && !artisticTextContent.trim()) {
-        setGeneralError('Anexe o arquivo da Produção Artística (PDF, JPG, PNG ou DOCX).');
+        triggerError('Anexe o arquivo da Produção Artística (PDF, JPG, PNG ou DOCX).');
         return;
       }
     }
 
     if (!termsAccepted) {
-      setGeneralError('É necessário declarar a veracidade das informações e concordar com as normas do edital da oficina.');
+      triggerError('É necessário declarar a veracidade das informações e concordar com as normas do edital da oficina.');
       return;
     }
 
     // Build Submission Payload
     setIsSubmitting(true);
+    setSubmittingStep('1/2 Gravando inscrição no servidor central...');
 
     const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
     const axisIndex = thematicAxis === 'EIXO_1' ? 1 : thematicAxis === 'EIXO_2' ? 2 : 3;
@@ -426,13 +475,14 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
     };
 
     // 1. Salvar no servidor permanente (banco de dados real do evento)
-    try {
-      await saveServerSubmission(submissionPayload);
-    } catch (saveErr) {
-      console.warn('Aviso ao salvar no servidor:', saveErr);
+    const saveRes = await saveServerSubmission(submissionPayload);
+    if (!saveRes.success) {
+      triggerError(`Não foi possível salvar o trabalho no servidor oficial: ${saveRes.error || 'Erro de rede'}. Por favor, tente novamente.`);
+      return;
     }
 
     // 2. Disparar envio de e-mail de confirmação aos participantes
+    setSubmittingStep(`2/2 Despachando e-mail oficial para ${submissionPayload.mainAuthor.email}...`);
     try {
       await sendSubmissionConfirmationEmail(submissionPayload);
     } catch (err) {
@@ -440,6 +490,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
     }
 
     setIsSubmitting(false);
+    setSubmittingStep('');
     onSubmit(submissionPayload);
   };
 
@@ -461,14 +512,26 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onOpenRules}
-          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-[#001B44] bg-slate-100 hover:bg-slate-200 border border-slate-300 transition cursor-pointer shrink-0"
-        >
-          <Info className="w-3.5 h-3.5 text-[#EA7600]" />
-          Ver Detalhes das Regras de Inscrição
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleFillTestData}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition cursor-pointer shrink-0 shadow-xs"
+            title="Preenche todos os campos obrigatórios com dados de teste válidos para agilizar a homologação"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#EA7600]" />
+            Preencher Dados de Teste (1 Clique)
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenRules}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-[#001B44] bg-slate-100 hover:bg-slate-200 border border-slate-300 transition cursor-pointer shrink-0"
+          >
+            <Info className="w-3.5 h-3.5 text-[#EA7600]" />
+            Ver Detalhes das Regras
+          </button>
+        </div>
       </div>
 
       {/* General Error Banner */}
@@ -1639,34 +1702,46 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         </div>
 
         {/* Informações pós-envio e Botão de Submissão */}
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-xs text-slate-600 max-w-md">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-700 mb-0.5">
-              <Mail className="w-3.5 h-3.5" />
-              Após o envio, os/as participantes receberão e-mail de confirmação.
+        <div className="pt-2 space-y-4">
+          {generalError && (
+            <div className="p-4 rounded-xl bg-rose-50 border-2 border-rose-300 text-rose-900 text-xs sm:text-sm flex items-start gap-3 shadow-xs animate-in fade-in">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <strong className="block text-rose-900 font-bold mb-0.5 text-sm">Não foi possível concluir a inscrição:</strong>
+                <span>{generalError}</span>
+              </div>
             </div>
-            <span>
-              Um <strong>protocolo oficial de inscrição</strong> será emitido para impressão e acompanhamento no sistema.
-            </span>
-          </div>
+          )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] disabled:bg-slate-400 text-white font-extrabold text-sm shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Registrando e Enviando Confirmação...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                Inscrever Trabalho na Oficina
-              </>
-            )}
-          </button>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs text-slate-600 max-w-md">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-700 mb-0.5">
+                <Mail className="w-3.5 h-3.5" />
+                Após o envio, os/as participantes receberão e-mail de confirmação.
+              </div>
+              <span>
+                Um <strong>protocolo oficial de inscrição</strong> será emitido para impressão e acompanhamento no sistema.
+              </span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] disabled:bg-slate-400 text-white font-extrabold text-sm shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>{submittingStep || 'Registrando e Enviando Confirmação...'}</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Inscrever Trabalho na Oficina
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </form>
