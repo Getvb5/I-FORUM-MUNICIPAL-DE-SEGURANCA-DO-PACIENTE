@@ -37,13 +37,7 @@ export default function App() {
       try {
         const data = await fetchServerSubmissions();
         if (isMounted && Array.isArray(data)) {
-          setSubmissions((prev) => {
-            // Se o servidor retornou lista com trabalhos, atualiza com a lista oficial
-            if (data.length > 0) return data;
-            // Se o servidor retornou vazio mas há trabalhos locais recentes em memória, preserva
-            if (prev.length > 0) return prev;
-            return [];
-          });
+          setSubmissions(data);
         }
       } catch (e) {
         console.warn('Erro ao sincronizar com servidor:', e);
@@ -52,8 +46,8 @@ export default function App() {
 
     loadSubmissions();
 
-    // Atualização periódica para que múltiplos coordenadores e autores vejam o status em tempo real
-    const interval = setInterval(loadSubmissions, 8000);
+    // Atualização periódica para que múltiplos navegadores e coordenadores vejam as vagas em tempo real
+    const interval = setInterval(loadSubmissions, 5000);
 
     return () => {
       isMounted = false;

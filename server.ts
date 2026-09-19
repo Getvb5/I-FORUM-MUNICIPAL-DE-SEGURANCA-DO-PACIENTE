@@ -188,8 +188,9 @@ app.get('/api/email-status', async (req, res) => {
 // SUBMISSIONS ENDPOINTS (Persistência no Servidor)
 // ==========================================
 
-// Retornar todas as submissões armazenadas no servidor
+// Retornar todas as submissões armazenadas no servidor (sempre lendo o estado mais recente do disco)
 app.get('/api/submissions', (req, res) => {
+  serverSubmissions = loadSubmissionsFromFile();
   res.json({
     success: true,
     data: serverSubmissions,
@@ -197,7 +198,32 @@ app.get('/api/submissions', (req, res) => {
   });
 });
 
-// Salvar ou atualizar submissão no servidor
+// Estatísticas rápidas de vagas em tempo real para sincronização instantânea entre múltiplos navegadores
+app.get('/api/submissions/stats', (req, res) => {
+  serverSubmissions = loadSubmissionsFromFile();
+  const countsByAxis = {
+    EIXO_1: 0,
+    EIXO_2: 0,
+    EIXO_3: 0
+  };
+  serverSubmissions.forEach((s) => {
+    if (s.thematicAxis in countsByAxis) {
+      countsByAxis[s.thematicAxis as keyof typeof countsByAxis]++;
+    }
+  });
+  res.json({
+    success: true,
+    total: serverSubmissions.length,
+    countsByAxis,
+    remainingSlots: {
+      EIXO_1: Math.max(0, 10 - countsByAxis.EIXO_1),
+      EIXO_2: Math.max(0, 10 - countsByAxis.EIXO_2),
+      EIXO_3: Math.max(0, 10 - countsByAxis.EIXO_3)
+    }
+  });
+});
+
+// Salvar ou atualizar submissão no servidor com persistência garantida em disco
 app.post('/api/submissions', (req, res) => {
   try {
     const submission = req.body;
@@ -208,6 +234,7 @@ app.post('/api/submissions', (req, res) => {
       });
     }
 
+    serverSubmissions = loadSubmissionsFromFile();
     const existingIndex = serverSubmissions.findIndex((s) => s.id === submission.id);
     if (existingIndex >= 0) {
       serverSubmissions[existingIndex] = submission;
@@ -215,8 +242,11 @@ app.post('/api/submissions', (req, res) => {
       serverSubmissions.unshift(submission);
     }
 
-    saveSubmissionsToFile(serverSubmissions);
-    console.info(`[Server Submissions] Trabalho salvo com sucesso: ${submission.protocolNumber} - ${submission.title}`);
+    const saved = saveSubmissionsToFile(serverSubmissions);
+    if (!saved) {
+      throw new Error('Falha física ao persistir submissions.json no disco.');
+    }
+    console.info(`[Server Submissions] Trabalho persistido com sucesso: Protocolo ${submission.protocolNumber} - "${submission.title}". Total no servidor: ${serverSubmissions.length}`);
 
     res.json({
       success: true,

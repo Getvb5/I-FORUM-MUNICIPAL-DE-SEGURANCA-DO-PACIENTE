@@ -61,6 +61,32 @@ export async function fetchServerSubmissions(): Promise<WorkSubmissionData[]> {
 }
 
 /**
+ * Busca estatísticas de vagas do servidor em tempo real (muito leve e instantâneo).
+ */
+export async function fetchSubmissionStats(): Promise<{
+  countsByAxis: Record<string, number>;
+  remainingSlots: Record<string, number>;
+  total: number;
+} | null> {
+  try {
+    const res = await fetch('/api/submissions/stats');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        return {
+          countsByAxis: data.countsByAxis,
+          remainingSlots: data.remainingSlots,
+          total: data.total
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[Submissions API] Falha ao consultar stats:', e);
+  }
+  return null;
+}
+
+/**
  * Salva a submissão de forma persistente no servidor e no cache local.
  */
 export async function saveServerSubmission(
@@ -78,13 +104,26 @@ export async function saveServerSubmission(
 
   // 2. Persistir no servidor oficial
   try {
-    const response = await fetch('/api/submissions', {
+    let response = await fetch('/api/submissions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(submission)
     });
+
+    // Se o envio falhar por excesso de carga (ex: anexo de imagem de alta resolução), tenta com versão sanitizada
+    if (!response.ok && response.status === 413) {
+      console.warn('[Submissions API] Carga muito grande para upload completo, reenviando com imagem otimizada...');
+      const sanitized = sanitizeForLocalStorage([submission])[0];
+      response = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(sanitized)
+      });
+    }
 
     if (response.ok) {
       const result = await response.json();
@@ -96,6 +135,19 @@ export async function saveServerSubmission(
     return { success: false, error: `Erro HTTP ${response.status} ao salvar no servidor.` };
   } catch (err: any) {
     console.error('[Submissions API Error] Falha de rede ao persistir:', err);
+    // Tentativa secundária com payload leve em caso de falha de socket
+    try {
+      const sanitized = sanitizeForLocalStorage([submission])[0];
+      const retryResp = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitized)
+      });
+      if (retryResp.ok) {
+        const retryRes = await retryResp.json();
+        if (retryRes.success) return { success: true, data: retryRes.data };
+      }
+    } catch (_) {}
     return { success: false, error: err?.message || 'Falha de conexão com o servidor.' };
   }
 }
