@@ -87,43 +87,53 @@ export async function fetchSubmissionStats(): Promise<{
 }
 
 /**
+ * Cria uma versão ultraleve da submissão para transmissão pela rede e persistência no servidor.
+ * Remove buffers brutos gigantescos de anexos (PDFs/PPTs de 10MB+) mantendo nome, tamanho, tipo e metadados.
+ */
+export function cleanSubmissionPayload(sub: WorkSubmissionData): WorkSubmissionData {
+  return {
+    ...sub,
+    attachedFile: sub.attachedFile
+      ? {
+          name: sub.attachedFile.name,
+          size: sub.attachedFile.size,
+          type: sub.attachedFile.type,
+          dimensions: sub.attachedFile.dimensions,
+          previewUrl: (sub.attachedFile.previewUrl && sub.attachedFile.previewUrl.length < 100000) 
+            ? sub.attachedFile.previewUrl 
+            : undefined
+        }
+      : undefined
+  };
+}
+
+/**
  * Salva a submissão de forma persistente no servidor e no cache local.
  */
 export async function saveServerSubmission(
   submission: WorkSubmissionData
 ): Promise<{ success: boolean; data?: WorkSubmissionData; error?: string }> {
+  const cleanPayload = cleanSubmissionPayload(submission);
+
   // 1. Atualizar cache local imediatamente para feedback instantâneo (sanitizado)
   try {
     const cached = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
     const list: WorkSubmissionData[] = cached ? JSON.parse(cached) : [];
-    const updated = [submission, ...list.filter((s) => s.id !== submission.id)];
-    localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(sanitizeForLocalStorage(updated)));
+    const updated = [cleanPayload, ...list.filter((s) => s.id !== cleanPayload.id)];
+    localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(updated));
   } catch (e) {
     console.warn('Aviso ao salvar no cache local:', e);
   }
 
-  // 2. Persistir no servidor oficial
+  // 2. Persistir no servidor oficial de forma ultraleve e confiável
   try {
-    let response = await fetch('/api/submissions', {
+    const response = await fetch('/api/submissions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(submission)
+      body: JSON.stringify(cleanPayload)
     });
-
-    // Se o envio falhar por excesso de carga (ex: anexo de imagem de alta resolução), tenta com versão sanitizada
-    if (!response.ok && response.status === 413) {
-      console.warn('[Submissions API] Carga muito grande para upload completo, reenviando com imagem otimizada...');
-      const sanitized = sanitizeForLocalStorage([submission])[0];
-      response = await fetch('/api/submissions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(sanitized)
-      });
-    }
 
     if (response.ok) {
       const result = await response.json();
@@ -135,19 +145,6 @@ export async function saveServerSubmission(
     return { success: false, error: `Erro HTTP ${response.status} ao salvar no servidor.` };
   } catch (err: any) {
     console.error('[Submissions API Error] Falha de rede ao persistir:', err);
-    // Tentativa secundária com payload leve em caso de falha de socket
-    try {
-      const sanitized = sanitizeForLocalStorage([submission])[0];
-      const retryResp = await fetch('/api/submissions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sanitized)
-      });
-      if (retryResp.ok) {
-        const retryRes = await retryResp.json();
-        if (retryRes.success) return { success: true, data: retryRes.data };
-      }
-    } catch (_) {}
     return { success: false, error: err?.message || 'Falha de conexão com o servidor.' };
   }
 }

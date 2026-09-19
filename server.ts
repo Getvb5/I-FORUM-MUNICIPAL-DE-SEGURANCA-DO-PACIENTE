@@ -25,6 +25,15 @@ function ensureDataDir() {
   }
 }
 
+app.use((req, res, next) => {
+  try {
+    ensureDataDir();
+    const logLine = `[${new Date().toISOString()}] ${req.method} ${req.url}\n`;
+    fs.appendFileSync(path.join(DATA_DIR, 'requests.log'), logLine);
+  } catch (_) {}
+  next();
+});
+
 function loadSubmissionsFromFile(): any[] {
   try {
     ensureDataDir();
@@ -232,6 +241,11 @@ app.post('/api/submissions', (req, res) => {
         success: false,
         error: 'Dados de submissão inválidos ou incompletos.'
       });
+    }
+
+    // Garantir que nenhum buffer bruto de base64 sobrecarregue o banco de dados em disco
+    if (submission.attachedFile && submission.attachedFile.dataUrl) {
+      delete submission.attachedFile.dataUrl;
     }
 
     serverSubmissions = loadSubmissionsFromFile();
