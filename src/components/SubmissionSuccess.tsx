@@ -111,9 +111,13 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-600">
-              O comprovante oficial com protocolo <strong>{submission.protocolNumber}</strong>, detalhes do trabalho e orientações do edital foi enviado automaticamente para: <strong className="text-[#001B44]">{submission.mainAuthor.email}</strong>
+              O comprovante oficial com protocolo <strong>{submission.protocolNumber}</strong>, detalhes do trabalho e orientações do edital foi enviado para: <strong className="text-[#001B44]">{submission.mainAuthor.email}</strong>
               {submission.coAuthors.length > 0 && ` (e cópia para ${submission.coAuthors.length} coautor(es))`}.
             </p>
+            <div className="mt-2 text-[11px] bg-amber-50 text-amber-900 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
+              <span className="font-bold shrink-0">⚠️ Atenção:</span>
+              <span>Caso não visualize o e-mail em até 1 minuto na sua <strong>Caixa de Entrada</strong>, verifique a pasta de <strong>Spam / Lixo Eletrônico</strong> e marque como <em>"Não é spam"</em> para receber futuros comunicados oficiais.</span>
+            </div>
           </div>
         </div>
       </div>

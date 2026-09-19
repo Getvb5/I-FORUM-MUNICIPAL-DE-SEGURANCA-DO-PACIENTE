@@ -11,10 +11,13 @@ import { ProgramacaoModal } from './components/ProgramacaoModal';
 import { Footer } from './components/Footer';
 import { WorkSubmissionData, AdminUser } from './types';
 import { getCurrentAdmin, logoutAdmin } from './utils/authService';
+import {
+  fetchServerSubmissions,
+  saveServerSubmission,
+  deleteServerSubmission,
+  clearAllServerSubmissions
+} from './utils/submissionsApi';
 import { FileEdit, FolderKanban, PlusCircle, Lock, ShieldAlert, Search } from 'lucide-react';
-
-const SUBMISSIONS_STORAGE_KEY = 'sesau_recife_forum_submissions_2026';
-const DATA_RESET_KEY = 'sesau_forum_data_zeroed_v1';
 
 export default function App() {
   const [submissions, setSubmissions] = useState<WorkSubmissionData[]>([]);
@@ -26,70 +29,63 @@ export default function App() {
   const [isProgramOpen, setIsProgramOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
 
-  // Load persistent submissions from localStorage (zeroed out on demand)
+  // Sincronizar submissões em tempo real com o servidor oficial
   useEffect(() => {
-    try {
-      // Se ainda não zerou os dados de teste nesta versão, zerar imediatamente
-      const isZeroed = localStorage.getItem(DATA_RESET_KEY);
-      if (!isZeroed) {
-        localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify([]));
-        localStorage.removeItem('nmspr_submission_email_logs_v1');
-        localStorage.setItem(DATA_RESET_KEY, 'true');
-        setSubmissions([]);
-        return;
-      }
+    let isMounted = true;
 
-      const stored = localStorage.getItem(SUBMISSIONS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          // Remove mock seeds so all slots remain fully available
-          const realSubmissions = parsed.filter((s: WorkSubmissionData) => !s.id?.startsWith('sub_seed_'));
-          setSubmissions(realSubmissions);
-          localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(realSubmissions));
-          return;
+    const loadSubmissions = async () => {
+      try {
+        const data = await fetchServerSubmissions();
+        if (isMounted) {
+          setSubmissions(data);
         }
+      } catch (e) {
+        console.warn('Erro ao sincronizar com servidor:', e);
       }
-      setSubmissions([]);
-      localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify([]));
-    } catch (e) {
-      console.warn('Não foi possível carregar as submissões locais:', e);
-      setSubmissions([]);
-    }
+    };
+
+    loadSubmissions();
+
+    // Atualização periódica para que múltiplos coordenadores e autores vejam o status em tempo real
+    const interval = setInterval(loadSubmissions, 8000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
-  const handleClearAllSubmissions = () => {
+  const handleClearAllSubmissions = async () => {
     setSubmissions([]);
     setCurrentSubmission(null);
     try {
-      localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify([]));
-      localStorage.removeItem('nmspr_submission_email_logs_v1');
+      await clearAllServerSubmissions();
     } catch (e) {
-      console.warn('Erro ao limpar dados locais:', e);
+      console.warn('Erro ao limpar dados no servidor:', e);
     }
   };
 
-  const handleDeleteSubmission = (id: string) => {
+  const handleDeleteSubmission = async (id: string) => {
     const updated = submissions.filter((s) => s.id !== id);
     setSubmissions(updated);
     if (currentSubmission?.id === id) {
       setCurrentSubmission(null);
     }
     try {
-      localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(updated));
+      await deleteServerSubmission(id);
     } catch (e) {
-      console.warn('Erro ao excluir trabalho:', e);
+      console.warn('Erro ao excluir trabalho no servidor:', e);
     }
   };
 
-  const handleSubmissionSubmit = (newSubmission: WorkSubmissionData) => {
+  const handleSubmissionSubmit = async (newSubmission: WorkSubmissionData) => {
     const updated = [newSubmission, ...submissions.filter((s) => s.id !== newSubmission.id)];
     setSubmissions(updated);
     setCurrentSubmission(newSubmission);
     try {
-      localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(updated));
+      await saveServerSubmission(newSubmission);
     } catch (e) {
-      console.warn('Erro ao persistir submissão:', e);
+      console.warn('Erro ao persistir submissão no servidor:', e);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

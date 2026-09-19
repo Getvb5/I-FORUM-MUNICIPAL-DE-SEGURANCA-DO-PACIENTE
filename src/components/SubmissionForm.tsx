@@ -45,6 +45,7 @@ import {
 import { formatCPF, isValidCPF } from '../utils/cpfValidator';
 import { countWords, getWordCountStatus } from '../utils/wordCounter';
 import { sendSubmissionConfirmationEmail } from '../utils/emailConfirmation';
+import { saveServerSubmission } from '../utils/submissionsApi';
 
 interface SubmissionFormProps {
   onSubmit: (submission: WorkSubmissionData) => void;
@@ -424,7 +425,14 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
       accessibilityNeed
     };
 
-    // Disparar envio de e-mail de confirmação aos participantes (aguardando envio para sincronizar status)
+    // 1. Salvar no servidor permanente (banco de dados real do evento)
+    try {
+      await saveServerSubmission(submissionPayload);
+    } catch (saveErr) {
+      console.warn('Aviso ao salvar no servidor:', saveErr);
+    }
+
+    // 2. Disparar envio de e-mail de confirmação aos participantes
     try {
       await sendSubmissionConfirmationEmail(submissionPayload);
     } catch (err) {

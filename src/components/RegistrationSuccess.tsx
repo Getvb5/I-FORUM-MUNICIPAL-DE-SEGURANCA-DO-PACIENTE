@@ -163,6 +163,10 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
             <p className="text-xs text-slate-600">
               A credencial oficial com QR Code e protocolo <strong>{registration.protocolNumber}</strong> foi processada para envio automático para: <strong className="text-[#001B44]">{registration.email}</strong>.
             </p>
+            <div className="mt-2 text-[11px] bg-amber-50 text-amber-900 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
+              <span className="font-bold shrink-0">⚠️ Atenção:</span>
+              <span>Caso não visualize o e-mail em até 1 minuto na sua <strong>Caixa de Entrada</strong>, verifique a pasta de <strong>Spam / Lixo Eletrônico</strong> e marque como <em>"Não é spam"</em> para receber futuros comunicados oficiais.</span>
+            </div>
           </div>
         </div>
       </div>

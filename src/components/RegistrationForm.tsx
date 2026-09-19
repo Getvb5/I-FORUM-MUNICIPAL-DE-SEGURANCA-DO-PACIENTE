@@ -84,7 +84,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, re
     setPhone(formatted);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneralError(null);
 
@@ -173,15 +173,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, re
       status: 'CONFIRMADA'
     };
 
-    // Disparo automático em background do e-mail oficial com todos os detalhes da inscrição
-    sendRegistrationConfirmationEmail(registrationPayload).catch((err) => {
-      console.warn('Erro em background no envio de e-mail de participante:', err);
-    });
+    // Disparo oficial com todos os detalhes da inscrição (aguardando envio para garantir a entrega)
+    try {
+      await sendRegistrationConfirmationEmail(registrationPayload);
+    } catch (err) {
+      console.warn('Erro no envio de e-mail de participante:', err);
+    }
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      onSubmit(registrationPayload);
-    }, 600);
+    setIsSubmitting(false);
+    onSubmit(registrationPayload);
   };
 
   return (
