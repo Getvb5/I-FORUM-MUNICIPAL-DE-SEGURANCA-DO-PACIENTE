@@ -116,6 +116,44 @@ function getResendClient(): Resend | null {
   return new Resend(apiKey);
 }
 
+// Persistência local de configuração SMTP para disparo sem bloqueio a qualquer destinatário
+const SMTP_CONFIG_FILE = path.join(DATA_DIR, 'smtp-config.json');
+
+interface SmtpConfigFile {
+  host?: string;
+  port?: number;
+  user?: string;
+  pass?: string;
+  fromName?: string;
+  fromEmail?: string;
+  service?: string;
+  updatedAt?: string;
+}
+
+function loadSmtpConfigFromFile(): SmtpConfigFile | null {
+  try {
+    ensureDataDir();
+    if (fs.existsSync(SMTP_CONFIG_FILE)) {
+      const content = fs.readFileSync(SMTP_CONFIG_FILE, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.error('[SMTP Config] Erro ao carregar smtp-config.json:', err);
+  }
+  return null;
+}
+
+function saveSmtpConfigToFile(config: SmtpConfigFile): boolean {
+  try {
+    ensureDataDir();
+    fs.writeFileSync(SMTP_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('[SMTP Config] Erro ao salvar smtp-config.json:', err);
+    return false;
+  }
+}
+
 // Resolver o remetente oficial Resend sob o domínio @intelipay
 async function resolveResendSender(resend?: Resend): Promise<string> {
   if (process.env.RESEND_FROM && !process.env.RESEND_FROM.includes('onboarding@resend.dev')) {
@@ -125,18 +163,19 @@ async function resolveResendSender(resend?: Resend): Promise<string> {
   return `I Fórum de Qualidade e Segurança <forum@${domain}>`;
 }
 
-// Helper to check SMTP configuration
+// Helper to check SMTP configuration (prioriza smtp-config.json, depois env vars)
 function getSmtpTransporter() {
-  const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
-  const host = process.env.SMTP_HOST || (user?.includes('@gmail.com') ? 'smtp.gmail.com' : undefined);
-  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : (host === 'smtp.gmail.com' ? 465 : 587);
+  const fileConfig = loadSmtpConfigFromFile();
+  const user = fileConfig?.user || process.env.SMTP_USER || process.env.GMAIL_USER;
+  const pass = fileConfig?.pass || process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+  const host = fileConfig?.host || process.env.SMTP_HOST || (user?.includes('@gmail.com') ? 'smtp.gmail.com' : undefined);
+  const port = fileConfig?.port || (process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : (host === 'smtp.gmail.com' ? 465 : 587));
 
   if (!host || !user || !pass) {
     return null;
   }
 
-  if (host === 'smtp.gmail.com') {
+  if (host === 'smtp.gmail.com' || fileConfig?.service === 'gmail') {
     return nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -444,8 +483,11 @@ Dúvidas: nsp.ggai@gmail.com
 
     if (transporter) {
       try {
-        const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-        const fromAddress = process.env.SMTP_FROM || `I Fórum de Qualidade e Segurança do Paciente <${user}>`;
+        const fileConfig = loadSmtpConfigFromFile();
+        const user = fileConfig?.user || process.env.SMTP_USER || process.env.GMAIL_USER;
+        const fromAddress = fileConfig?.fromName
+          ? `"${fileConfig.fromName}" <${user}>`
+          : (process.env.SMTP_FROM || `I Fórum de Qualidade e Segurança do Paciente <${user}>`);
 
         const info = await transporter.sendMail({
           from: fromAddress,
@@ -575,22 +617,130 @@ Dúvidas: nsp.ggai@gmail.com
   }
 });
 
+// Endpoint para consultar status das configurações de e-mail (SMTP vs Resend)
+app.get('/api/email-config-status', (req, res) => {
+  const fileConfig = loadSmtpConfigFromFile();
+  const smtpUser = fileConfig?.user || process.env.SMTP_USER || process.env.GMAIL_USER;
+  const hasSmtp = Boolean(smtpUser && (fileConfig?.pass || process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD));
+  const hasResend = Boolean(getResendApiKey());
+
+  res.json({
+    smtpConfigured: hasSmtp,
+    smtpUser: smtpUser ? `${smtpUser.slice(0, 3)}***@${smtpUser.split('@')[1] || ''}` : null,
+    smtpHost: fileConfig?.host || process.env.SMTP_HOST || (smtpUser?.includes('@gmail.com') ? 'smtp.gmail.com' : null),
+    resendConfigured: hasResend,
+    resendSender: process.env.RESEND_FROM || 'forum@intelipay-sesau.com.br',
+    activeDeliveryMode: hasSmtp ? 'SMTP (Qualquer e-mail do mundo)' : (hasResend ? 'RESEND' : 'SIMULATED'),
+    canSendToAnyEmailWithoutRestriction: hasSmtp,
+    notice: hasSmtp 
+      ? 'Envio via SMTP ativo. Dispara para QUALQUER e-mail (Gmail, Hotmail, Outlook, Yahoo, SESAU, etc.) sem restrição.'
+      : 'O Resend gratuito sem domínio validado restringe a entrega externa. Configure o SMTP do Gmail/institucional para entrega garantida em qualquer caixa postal.'
+  });
+});
+
+// Endpoint para salvar configuração SMTP no servidor (ativa imediatamente)
+app.post('/api/save-smtp-config', async (req, res) => {
+  try {
+    const { host, port, user, pass, fromName, fromEmail, service } = req.body || {};
+    if (!user || !pass) {
+      return res.status(400).json({ success: false, error: 'E-mail (usuário) e senha/token de aplicativo são obrigatórios.' });
+    }
+
+    const cleanUser = user.trim();
+    const cleanPass = pass.trim().replace(/\s+/g, '');
+    const isGmail = cleanUser.toLowerCase().includes('@gmail.com');
+
+    const config: SmtpConfigFile = {
+      host: host || (isGmail ? 'smtp.gmail.com' : 'smtp.gmail.com'),
+      port: port ? Number(port) : (isGmail ? 465 : 587),
+      user: cleanUser,
+      pass: cleanPass,
+      fromName: fromName || 'I Fórum de Qualidade e Segurança do Paciente',
+      fromEmail: fromEmail || cleanUser,
+      service: service || (isGmail ? 'gmail' : undefined),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Testar conexão
+    const testTransporter = nodemailer.createTransport({
+      service: config.service === 'gmail' || config.host === 'smtp.gmail.com' ? 'gmail' : undefined,
+      host: config.host,
+      port: config.port,
+      secure: config.port === 465,
+      auth: { user: config.user, pass: config.pass },
+      tls: { rejectUnauthorized: false }
+    });
+
+    try {
+      await testTransporter.verify();
+    } catch (verifyErr: any) {
+      return res.status(400).json({
+        success: false,
+        error: `Falha na autenticação SMTP: ${verifyErr?.message || 'Verifique usuário e senha'}. Se for Gmail, certifique-se de usar a Senha de Aplicativo de 16 caracteres gerada na sua conta Google.`
+      });
+    }
+
+    const saved = saveSmtpConfigToFile(config);
+    if (!saved) {
+      return res.status(500).json({ success: false, error: 'Falha ao salvar arquivo de configuração SMTP.' });
+    }
+
+    return res.json({
+      success: true,
+      message: 'SMTP configurado e testado com sucesso! O sistema agora dispara para QUALQUER e-mail sem restrições.',
+      user: config.user
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Erro no servidor' });
+  }
+});
+
 // Endpoint para testar envio manual de e-mail com diagnóstico em tempo real
 app.post('/api/test-email', async (req, res) => {
   try {
-    const { targetEmail } = req.body;
+    const { targetEmail, forceProvider } = req.body;
     const recipient = targetEmail || process.env.SMTP_USER || process.env.GMAIL_USER || 'Getvb98@gmail.com';
 
-    const testSubject = 'Teste de Conexão - I Fórum de Qualidade e Segurança';
+    const testSubject = 'Teste de Disparo de E-mail - I Fórum de Qualidade e Segurança (SUS Recife)';
     const testHtml = `
-      <div style="font-family: sans-serif; padding: 20px; color: #001B44;">
-        <h2>Teste de Envio de E-mail Concluído com Sucesso!</h2>
-        <p>Este é um e-mail de verificação das configurações do sistema do I Fórum de Qualidade e Segurança do Paciente (SUS Recife).</p>
-        <p><strong>Data/Hora do Teste:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+      <div style="font-family: Arial, sans-serif; padding: 24px; color: #001B44; max-width: 600px; border: 1px solid #cbd5e1; border-radius: 12px;">
+        <h2 style="color: #001B44; margin-top: 0;">Teste de Conexão de E-mail Concluído com Sucesso!</h2>
+        <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+          Este é um e-mail de verificação oficial do sistema de inscrições do <strong>I Fórum Municipal de Qualidade e Segurança do Paciente</strong> da Secretaria de Saúde do Recife.
+        </p>
+        <div style="background-color: #f1f5f9; padding: 14px; border-radius: 8px; font-size: 13px; margin: 16px 0;">
+          <p style="margin: 0;"><strong>Destinatário:</strong> ${recipient}</p>
+          <p style="margin: 4px 0 0 0;"><strong>Data/Hora do Teste:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+        <p style="font-size: 12px; color: #64748b;">Núcleo Municipal de Segurança do Paciente (NMSPR) • Coordenação do Fórum</p>
       </div>
     `;
 
-    // 1. Testar Resend
+    // 1. Se SMTP estiver configurado, priorizar ou usar
+    const transporter = getSmtpTransporter();
+    if (transporter && forceProvider !== 'RESEND') {
+      const fileConfig = loadSmtpConfigFromFile();
+      const user = fileConfig?.user || process.env.SMTP_USER || process.env.GMAIL_USER;
+      const fromAddress = fileConfig?.fromName 
+        ? `"${fileConfig.fromName}" <${user}>`
+        : (process.env.SMTP_FROM || `I Fórum de Qualidade e Segurança <${user}>`);
+
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to: recipient,
+        subject: testSubject,
+        html: testHtml
+      });
+      return res.json({ 
+        success: true, 
+        provider: 'SMTP', 
+        messageId: info.messageId, 
+        recipient,
+        message: `E-mail de teste enviado com sucesso para ${recipient} via SMTP!` 
+      });
+    }
+
+    // 2. Testar Resend
     const resend = getResendClient();
     if (resend) {
       const fromEmail = await resolveResendSender();
@@ -602,29 +752,21 @@ app.post('/api/test-email', async (req, res) => {
         replyTo: 'forum@intelipay-sesau.com.br'
       });
       if (!error && data?.id) {
-        return res.json({ success: true, provider: 'RESEND', messageId: data.id, recipient });
+        return res.json({ 
+          success: true, 
+          provider: 'RESEND', 
+          messageId: data.id, 
+          recipient,
+          message: `E-mail de teste despachado com sucesso para ${recipient} via Resend (${fromEmail})!` 
+        });
       }
       return res.json({ success: false, provider: 'RESEND', error: error?.message, recipient });
-    }
-
-    // 2. Testar SMTP
-    const transporter = getSmtpTransporter();
-    if (transporter) {
-      const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-      const fromAddress = process.env.SMTP_FROM || `I Fórum <${user}>`;
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        to: recipient,
-        subject: testSubject,
-        html: testHtml
-      });
-      return res.json({ success: true, provider: 'SMTP', messageId: info.messageId, recipient });
     }
 
     return res.json({
       success: false,
       noProvider: true,
-      message: 'Nenhum provedor configurado. Defina RESEND_API_KEY ou SMTP_HOST / SMTP_USER / SMTP_PASS.'
+      message: 'Nenhum provedor de e-mail ativo. Configure o SMTP do Gmail/institucional ou RESEND_API_KEY.'
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message });

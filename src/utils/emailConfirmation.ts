@@ -786,6 +786,19 @@ export function generateMailtoLink(recipientEmail: string, subject: string, plai
 }
 
 /**
+ * Gera link de compartilhamento rápido pelo WhatsApp Web/App
+ */
+export function generateWhatsAppShareLink(phone: string | undefined, message: string): string {
+  const cleanPhone = (phone || '').replace(/\D/g, '');
+  const encodedText = encodeURIComponent(message);
+  if (cleanPhone.length >= 10) {
+    const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    return `https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodedText}`;
+  }
+  return `https://api.whatsapp.com/send?text=${encodedText}`;
+}
+
+/**
  * Envia o e-mail de confirmação de inscrição para o autor principal e coautores.
  * Tenta enviar via rota /api/send-confirmation-email do backend (se configurado SMTP)
  * e também armazena os recibos e logs formatados.

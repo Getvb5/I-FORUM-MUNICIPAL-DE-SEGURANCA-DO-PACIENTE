@@ -22,10 +22,12 @@ import {
   LogOut,
   ShieldCheck,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Mail
 } from 'lucide-react';
 import { WorkSubmissionData, ThematicAxisId, SubmissionModality, AdminUser } from '../types';
 import { THEMATIC_AXES } from '../data/forumInfo';
+import { EmailSettingsModal } from './EmailSettingsModal';
 
 interface SubmissionsDashboardProps {
   submissions: WorkSubmissionData[];
@@ -51,6 +53,7 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
   const [selectedModality, setSelectedModality] = useState<string>('ALL');
   const [expandedSubmissionId, setExpandedSubmissionId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   // Axis stats
   const axisCounts: Record<ThematicAxisId, number> = {
@@ -193,6 +196,16 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowEmailModal(true)}
+            className="px-3.5 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-[#001B44] text-xs font-bold transition flex items-center gap-1.5 border border-sky-200 cursor-pointer shadow-2xs"
+            title="Configurar envio de e-mails para qualquer endereço via SMTP / Gmail"
+          >
+            <Mail className="w-4 h-4 text-sky-600" />
+            Configurar E-mails
+          </button>
+
           {onClearAllSubmissions && submissions.length > 0 && (
             <button
               type="button"
@@ -632,6 +645,12 @@ export const SubmissionsDashboard: React.FC<SubmissionsDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Configuração e Diagnóstico de E-mails */}
+      <EmailSettingsModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+      />
     </div>
   );
 };

@@ -20,7 +20,8 @@ import {
   ChevronUp,
   Copy,
   Check,
-  Share2
+  Share2,
+  MessageCircle
 } from 'lucide-react';
 import { WorkSubmissionData } from '../types';
 import { FORUM_INFO } from '../data/forumInfo';
@@ -31,6 +32,7 @@ import {
   generateExecutiveReceiptText,
   generateGmailWebLink,
   generateMailtoLink,
+  generateWhatsAppShareLink,
   saveEmailLog
 } from '../utils/emailConfirmation';
 
@@ -262,9 +264,24 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#001B44] text-xs font-bold transition flex items-center gap-1.5 border border-slate-300"
+                  title="Abre o Gmail com remetente da sua própria conta para entrega direta sem travas de provedor"
                 >
                   <ExternalLink className="w-3.5 h-3.5 text-[#EA7600]" />
                   Abrir no Gmail Web
+                </a>
+
+                <a
+                  href={generateWhatsAppShareLink(
+                    submission.mainAuthor.phone,
+                    generateExecutiveReceiptText(submission, submission.mainAuthor.fullName)
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition flex items-center gap-1.5 border border-emerald-300"
+                  title="Compartilhar comprovante e protocolo oficial via WhatsApp"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  Enviar no WhatsApp
                 </a>
 
                 <button
@@ -284,17 +301,17 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
 
             {/* Optional custom email input */}
             {showEmailInput && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 mt-2">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5 mt-2">
                 <label className="block text-xs font-bold text-slate-700">
-                  Enviar cópia para outro e-mail:
+                  Disparar comprovante para qualquer outro e-mail:
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <input
                     type="email"
                     value={customEmail}
                     onChange={(e) => setCustomEmail(e.target.value)}
-                    placeholder="Digite o e-mail (ex: Getvb98@gmail.com)"
-                    className="flex-1 min-w-[220px] px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                    placeholder="Digite qualquer e-mail (ex: participante@recife.pe.gov.br ou hotmail, gmail, etc.)"
+                    className="flex-1 min-w-[240px] px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
                   <button
                     type="button"
@@ -302,7 +319,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                     disabled={resending}
                     className="px-4 py-1.5 bg-[#001B44] hover:bg-[#0A2D6C] text-white text-xs font-bold rounded-lg transition disabled:bg-slate-400 cursor-pointer"
                   >
-                    {resending ? 'Enviando...' : 'Enviar Cópia'}
+                    {resending ? 'Enviando...' : 'Disparar Agora'}
                   </button>
                   <a
                     href={generateGmailWebLink(
@@ -313,9 +330,10 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#001B44] text-xs font-bold rounded-lg transition border border-slate-300 flex items-center gap-1"
+                    title="Abre o Gmail com este endereço preenchido"
                   >
                     <ExternalLink className="w-3.5 h-3.5 text-[#EA7600]" />
-                    Gmail
+                    Pelo Gmail Web
                   </a>
                 </div>
               </div>
