@@ -196,7 +196,7 @@ async function resolveResendSender(resend?: Resend): Promise<string> {
   if (process.env.RESEND_FROM && !process.env.RESEND_FROM.includes('onboarding@resend.dev')) {
     return process.env.RESEND_FROM;
   }
-  const domain = process.env.RESEND_DOMAIN || 'nipem360.com.br';
+  const domain = process.env.RESEND_DOMAIN || 'intelipay-sesau.com.br';
   return `I Fórum de Qualidade e Segurança <forum@${domain}>`;
 }
 
@@ -734,14 +734,14 @@ app.get('/api/email-config-status', async (req, res) => {
     smtpHost: fileConfig?.host || process.env.SMTP_HOST || (smtpUser?.includes('@gmail.com') ? 'smtp.gmail.com' : null),
     resendConfigured: hasResend,
     resendSender,
-    resendDomain: resendFileConfig?.domain || process.env.RESEND_DOMAIN || 'nipem360.com.br',
+    resendDomain: resendFileConfig?.domain || process.env.RESEND_DOMAIN || 'intelipay-sesau.com.br',
     resendCustomConfigured: Boolean(resendFileConfig?.apiKey || resendFileConfig?.domain),
     activeDeliveryMode: hasSmtp ? 'SMTP (Qualquer e-mail do mundo)' : (hasResend ? 'RESEND' : 'SIMULATED'),
     canSendToAnyEmailWithoutRestriction: hasSmtp || Boolean(hasResend && (resendFileConfig?.domain || process.env.RESEND_DOMAIN)),
     notice: hasSmtp 
       ? 'Envio via SMTP ativo. Dispara para QUALQUER e-mail (Gmail, Hotmail, Outlook, Yahoo, SESAU, etc.) sem restrição.'
       : (hasResend 
-          ? `Envio ativo via Resend com domínio próprio verificado (${resendFileConfig?.domain || process.env.RESEND_DOMAIN || 'nipem360.com.br'}). Entregas liberadas para qualquer e-mail com SPF e DKIM validados.`
+          ? `Envio ativo via Resend com domínio próprio verificado (${resendFileConfig?.domain || process.env.RESEND_DOMAIN || 'intelipay-sesau.com.br'}). Entregas liberadas para qualquer e-mail com SPF e DKIM validados.`
           : 'Nenhum serviço de envio configurado. Em modo simulado.')
   });
 });
@@ -905,7 +905,7 @@ app.post('/api/test-email', async (req, res) => {
               </tr>
               <tr>
                 <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Domínio Ativo:</td>
-                <td style="padding: 4px 0; color: #001B44; font-weight: bold;">nipem360.com.br</td>
+                <td style="padding: 4px 0; color: #001B44; font-weight: bold;">intelipay-sesau.com.br</td>
               </tr>
             </table>
           </div>
