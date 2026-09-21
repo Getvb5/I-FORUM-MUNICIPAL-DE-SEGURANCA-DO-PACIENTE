@@ -10,7 +10,8 @@ import {
   HelpCircle, 
   ExternalLink,
   X,
-  Sparkles
+  Globe,
+  RefreshCw
 } from 'lucide-react';
 
 interface EmailSettingsModalProps {
@@ -24,6 +25,8 @@ interface EmailStatus {
   smtpHost: string | null;
   resendConfigured: boolean;
   resendSender: string;
+  resendDomain?: string;
+  resendCustomConfigured?: boolean;
   activeDeliveryMode: string;
   canSendToAnyEmailWithoutRestriction: boolean;
   notice?: string;
@@ -31,16 +34,22 @@ interface EmailStatus {
 
 export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, onClose }) => {
   const [status, setStatus] = useState<EmailStatus | null>(null);
+  const [activeTab, setActiveTab] = useState<'RESEND' | 'GMAIL'>('RESEND');
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [savingResend, setSavingResend] = useState(false);
   const [testing, setTesting] = useState(false);
 
-  // Form states
+  // Form states - SMTP
   const [smtpUser, setSmtpUser] = useState('');
   const [smtpPass, setSmtpPass] = useState('');
   const [fromName, setFromName] = useState('I Fórum de Qualidade e Segurança do Paciente');
   const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
   const [smtpPort, setSmtpPort] = useState('465');
+
+  // Form states - Resend
+  const [resendApiKey, setResendApiKey] = useState('');
+  const [resendDomain, setResendDomain] = useState('');
 
   // Test states
   const [targetTestEmail, setTargetTestEmail] = useState('');
@@ -56,6 +65,9 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
         setStatus(data);
         if (data.smtpUser) {
           setSmtpUser(data.smtpUser);
+        }
+        if (data.resendDomain) {
+          setResendDomain(data.resendDomain);
         }
       }
     } catch (err) {
@@ -80,7 +92,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
       return;
     }
 
-    setSaving(true);
+    setSavingSmtp(true);
     setSaveResult(null);
 
     try {
@@ -102,12 +114,47 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
         setSmtpPass('');
         await fetchStatus();
       } else {
-        setSaveResult({ success: false, message: data.error || 'Falha ao salvar configuração.' });
+        setSaveResult({ success: false, message: data.error || 'Falha ao salvar configuração SMTP.' });
       }
     } catch (err: any) {
       setSaveResult({ success: false, message: `Erro de rede: ${err.message}` });
     } finally {
-      setSaving(false);
+      setSavingSmtp(false);
+    }
+  };
+
+  const handleSaveResend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resendDomain && !resendApiKey) {
+      setSaveResult({ success: false, message: 'Informe o novo domínio ou a nova chave do Resend.' });
+      return;
+    }
+
+    setSavingResend(true);
+    setSaveResult(null);
+
+    try {
+      const res = await fetch('/api/save-resend-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: resendDomain.trim(),
+          apiKey: resendApiKey.trim() || undefined
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSaveResult({ success: true, message: data.message });
+        setResendApiKey('');
+        await fetchStatus();
+      } else {
+        setSaveResult({ success: false, message: data.error || 'Falha ao salvar configuração Resend.' });
+      }
+    } catch (err: any) {
+      setSaveResult({ success: false, message: `Erro de rede: ${err.message}` });
+    } finally {
+      setSavingResend(false);
     }
   };
 
@@ -174,7 +221,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
                 Painel Administrativo
               </span>
               <h3 className="text-xl font-black text-white font-display">
-                Configuração de Disparo de E-mails
+                Configuração de Envio de E-mails
               </h3>
             </div>
           </div>
@@ -186,26 +233,43 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black text-[#001B44] uppercase tracking-wider flex items-center gap-2">
                 <Server className="w-4 h-4 text-[#EA7600]" />
-                Status do Serviço de E-mail
+                Status Atual do Sistema
               </h4>
-              <span className={`text-[11px] font-black px-2.5 py-0.5 rounded-full ${
-                status?.canSendToAnyEmailWithoutRestriction
-                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                  : 'bg-amber-100 text-amber-800 border border-amber-300'
-              }`}>
-                {status?.activeDeliveryMode || 'Carregando...'}
-              </span>
+              <button
+                type="button"
+                onClick={fetchStatus}
+                disabled={loading}
+                className="text-[11px] text-slate-500 hover:text-[#001B44] flex items-center gap-1 cursor-pointer font-semibold"
+              >
+                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </button>
             </div>
 
-            {/* Aviso explicativo da restrição do Resend */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">Modo de Envio Ativo</span>
+                <span className="font-extrabold text-[#001B44] text-xs">
+                  {status?.activeDeliveryMode || 'Verificando...'}
+                </span>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">Domínio / Remetente</span>
+                <span className="font-extrabold text-[#001B44] text-xs truncate block" title={status?.resendSender}>
+                  {status?.resendSender || 'Não configurado'}
+                </span>
+              </div>
+            </div>
+
+            {/* Aviso explicativo */}
             {!status?.canSendToAnyEmailWithoutRestriction && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-950 space-y-2">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-950 space-y-1.5">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
-                    <strong className="block font-bold">Por que o Resend só entrega para Getvb98@gmail.com?</strong>
-                    <p className="mt-0.5 text-amber-900 leading-relaxed">
-                      O Resend gratuito em modo de teste possui uma política rígida anti-spam: ele <strong>só entrega mensagens para o e-mail do titular da conta</strong> até que o domínio (ex: <code className="bg-amber-100 px-1 rounded">intelipay-sesau.com.br</code>) tenha seus registros DNS (DKIM e SPF) validados em <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-950 inline-flex items-center gap-0.5">resend.com/domains <ExternalLink className="w-3 h-3" /></a>.
+                    <strong className="block font-bold">Por que os e-mails não chegam automaticamente para todos?</strong>
+                    <p className="mt-0.5 text-amber-900 leading-relaxed text-[11px]">
+                      O Resend bloqueia o envio externo para destinatários que não sejam o titular até que um <strong>novo domínio próprio</strong> seja validado em sua conta Resend via registros DNS, <strong>OU</strong> até que o envio direto via <strong>Gmail (SMTP)</strong> seja conectado abaixo.
                     </p>
                   </div>
                 </div>
@@ -216,98 +280,211 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="block font-bold">Disparo Irrestrito Ativo via SMTP!</strong>
-                  <p className="mt-0.5 text-emerald-800">
-                    O servidor está enviando e-mails autenticados diretamente pelo endereço cadastrado. E-mails chegam para qualquer destinatário (Gmail, Outlook, Yahoo, Hotmail, servidores SESAU, etc.).
+                  <strong className="block font-bold">Disparo Irrestrito Ativo!</strong>
+                  <p className="mt-0.5 text-emerald-800 text-[11px]">
+                    O servidor está enviando e-mails autenticados para qualquer destinatário (Gmail, Outlook, Yahoo, Hotmail, servidores institucionais, etc.).
                   </p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Opção 1: Configurar SMTP do Gmail / Institucional */}
-          <form onSubmit={handleSaveSmtp} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center gap-2">
-              <Key className="w-4 h-4 text-[#001B44]" />
-              <h4 className="text-sm font-extrabold text-[#001B44]">
-                Ativar Disparo para QUALQUER E-mail via Gmail SMTP (Recomendado)
-              </h4>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Ao conectar uma conta do Gmail (como <code className="bg-slate-100 px-1 rounded text-[#001B44]">nsp.ggai@gmail.com</code> ou sua conta pessoal), todas as confirmações passam a ser enviadas para <strong>qualquer e-mail do mundo</strong> com taxa de entrega máxima.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  E-mail do Remetente (Gmail / Institucional):
-                </label>
-                <input
-                  type="email"
-                  value={smtpUser}
-                  onChange={(e) => setSmtpUser(e.target.value)}
-                  placeholder="ex: nsp.ggai@gmail.com ou seu@gmail.com"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#EA7600]"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Senha de Aplicativo do Google (16 caracteres):
-                </label>
-                <input
-                  type="password"
-                  value={smtpPass}
-                  onChange={(e) => setSmtpPass(e.target.value)}
-                  placeholder="xxxx xxxx xxxx xxxx"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#EA7600]"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="text-[11px] bg-sky-50 border border-sky-200 rounded-xl p-3 text-sky-900 space-y-1">
-              <strong className="block font-bold flex items-center gap-1">
-                <HelpCircle className="w-3.5 h-3.5 text-sky-600" />
-                Como gerar a Senha de Aplicativo de 16 dígitos no Gmail em 1 minuto:
-              </strong>
-              <ol className="list-decimal list-inside space-y-0.5 text-sky-800">
-                <li>Acesse <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline font-bold text-sky-950 inline-flex items-center gap-0.5">myaccount.google.com/apppasswords <ExternalLink className="w-2.5 h-2.5" /></a>.</li>
-                <li>Dê o nome de "Fórum SESAU" e clique em <strong>Criar</strong>.</li>
-                <li>Copie a senha amarela de 16 letras gerada e cole no campo acima.</li>
-              </ol>
-            </div>
-
-            {saveResult && (
-              <div className={`p-3 rounded-xl text-xs ${
-                saveResult.success 
-                  ? 'bg-emerald-50 text-emerald-900 border border-emerald-300' 
-                  : 'bg-rose-50 text-rose-900 border border-rose-300'
-              }`}>
-                {saveResult.message}
-              </div>
-            )}
+          {/* Abas de Configuração: Resend vs Gmail SMTP */}
+          <div className="flex border-b border-slate-200 gap-2">
+            <button
+              type="button"
+              onClick={() => { setActiveTab('RESEND'); setSaveResult(null); }}
+              className={`pb-2.5 px-3 text-xs font-bold transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'RESEND'
+                  ? 'border-[#EA7600] text-[#EA7600]'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              Novo Domínio Resend
+            </button>
 
             <button
-              type="submit"
-              disabled={saving}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#001B44] hover:bg-[#0A2D6C] disabled:bg-slate-400 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              type="button"
+              onClick={() => { setActiveTab('GMAIL'); setSaveResult(null); }}
+              className={`pb-2.5 px-3 text-xs font-bold transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'GMAIL'
+                  ? 'border-[#001B44] text-[#001B44]'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
             >
-              {saving ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Testando e Salvando Conexão...
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4 text-[#EA7600]" />
-                  Salvar e Ativar Envio para Qualquer E-mail
-                </>
-              )}
+              <Key className="w-3.5 h-3.5" />
+              Gmail SMTP (Envio Direto)
             </button>
-          </form>
+          </div>
+
+          {/* ABA 1: NOVO DOMÍNIO RESEND */}
+          {activeTab === 'RESEND' && (
+            <form onSubmit={handleSaveResend} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-[#EA7600]" />
+                <h4 className="text-sm font-extrabold text-[#001B44]">
+                  Configurar Novo Domínio no Resend
+                </h4>
+              </div>
+
+              <div className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 space-y-1.5">
+                <strong className="block font-bold text-[#001B44] flex items-center gap-1">
+                  <HelpCircle className="w-3.5 h-3.5 text-[#EA7600]" />
+                  Passo a passo no Resend:
+                </strong>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600">
+                  <li>Acesse <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="underline font-bold text-[#001B44] inline-flex items-center gap-0.5">resend.com/domains <ExternalLink className="w-2.5 h-2.5" /></a> e clique em <strong>Add Domain</strong>.</li>
+                  <li>Adicione seu novo domínio (ex: <code className="bg-white px-1 py-0.5 border rounded">meunovodominio.com.br</code> ou subdomínio).</li>
+                  <li>Insira os registros DNS (DKIM TXT e SPF MX/TXT) no seu provedor de domínio (Registro.br, Cloudflare, etc.).</li>
+                  <li>Gere uma nova API Key em <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline font-bold text-[#001B44] inline-flex items-center gap-0.5">resend.com/api-keys <ExternalLink className="w-2.5 h-2.5" /></a> e salve abaixo.</li>
+                </ol>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Novo Domínio Validado:
+                  </label>
+                  <input
+                    type="text"
+                    value={resendDomain}
+                    onChange={(e) => setResendDomain(e.target.value)}
+                    placeholder="ex: seunovodominio.com.br"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#EA7600]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nova Resend API Key (opcional se mantiver a mesma):
+                  </label>
+                  <input
+                    type="password"
+                    value={resendApiKey}
+                    onChange={(e) => setResendApiKey(e.target.value)}
+                    placeholder="re_..."
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#EA7600]"
+                  />
+                </div>
+              </div>
+
+              {saveResult && (
+                <div className={`p-3 rounded-xl text-xs ${
+                  saveResult.success 
+                    ? 'bg-emerald-50 text-emerald-900 border border-emerald-300' 
+                    : 'bg-rose-50 text-rose-900 border border-rose-300'
+                }`}>
+                  {saveResult.message}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={savingResend}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#EA7600] hover:bg-[#D26500] disabled:bg-slate-400 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              >
+                {savingResend ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Salvando Novo Domínio...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 text-white" />
+                    Salvar e Ativar Novo Domínio Resend
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* ABA 2: GMAIL SMTP */}
+          {activeTab === 'GMAIL' && (
+            <form onSubmit={handleSaveSmtp} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-[#001B44]" />
+                <h4 className="text-sm font-extrabold text-[#001B44]">
+                  Ativar Envio via Gmail SMTP (Não exige configurar DNS)
+                </h4>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Esta é a alternativa mais rápida caso não queira esperar propagação de DNS. Conecte sua conta Google e os disparos saem diretamente pelos servidores do Gmail.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    E-mail do Remetente (Gmail):
+                  </label>
+                  <input
+                    type="email"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    placeholder="ex: nsp.ggai@gmail.com ou seu@gmail.com"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#001B44]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Senha de Aplicativo Google (16 letras):
+                  </label>
+                  <input
+                    type="password"
+                    value={smtpPass}
+                    onChange={(e) => setSmtpPass(e.target.value)}
+                    placeholder="xxxx xxxx xxxx xxxx"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#001B44]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="text-[11px] bg-sky-50 border border-sky-200 rounded-xl p-3 text-sky-900 space-y-1">
+                <strong className="block font-bold flex items-center gap-1">
+                  <HelpCircle className="w-3.5 h-3.5 text-sky-600" />
+                  Como gerar a Senha de Aplicativo no Google:
+                </strong>
+                <ol className="list-decimal list-inside space-y-0.5 text-sky-800">
+                  <li>Acesse <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline font-bold text-sky-950 inline-flex items-center gap-0.5">myaccount.google.com/apppasswords <ExternalLink className="w-2.5 h-2.5" /></a>.</li>
+                  <li>Dê o nome de "Fórum Recife" e clique em <strong>Criar</strong>.</li>
+                  <li>Copie o código de 16 letras gerado e cole no campo acima.</li>
+                </ol>
+              </div>
+
+              {saveResult && (
+                <div className={`p-3 rounded-xl text-xs ${
+                  saveResult.success 
+                    ? 'bg-emerald-50 text-emerald-900 border border-emerald-300' 
+                    : 'bg-rose-50 text-rose-900 border border-rose-300'
+                }`}>
+                  {saveResult.message}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={savingSmtp}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#001B44] hover:bg-[#0A2D6C] disabled:bg-slate-400 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              >
+                {savingSmtp ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Testando Conexão com o Google...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 text-[#EA7600]" />
+                    Salvar e Ativar Envio Gmail
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
           {/* Seção de Teste de Disparo em Tempo Real */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
@@ -316,7 +493,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
               Testar Envio para Qualquer Destinatário Agora
             </h4>
             <p className="text-xs text-slate-600">
-              Digite qualquer endereço de e-mail (seu ou de terceiros) para testar a entrega em tempo real:
+              Digite qualquer endereço de e-mail (ex: <code className="bg-white px-1 border rounded">getulio.batista@ufpe.br</code>) para testar a entrega em tempo real:
             </p>
 
             <div className="flex flex-wrap gap-2">
@@ -324,7 +501,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
                 type="email"
                 value={targetTestEmail}
                 onChange={(e) => setTargetTestEmail(e.target.value)}
-                placeholder="ex: colega@recife.pe.gov.br ou hotmail, etc."
+                placeholder="ex: getulio.batista@ufpe.br"
                 className="flex-1 min-w-[240px] px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#EA7600] bg-white"
               />
               <button

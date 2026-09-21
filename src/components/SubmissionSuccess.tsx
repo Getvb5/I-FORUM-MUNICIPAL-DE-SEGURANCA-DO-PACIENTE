@@ -416,9 +416,17 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
               </div>
             )}
 
-            <div className="text-[11px] bg-sky-50 text-sky-950 border border-sky-200 rounded-lg p-2.5 flex items-start gap-2">
-              <span className="font-bold shrink-0">💡 Dica:</span>
-              <span>Caso não localize o e-mail na Caixa de Entrada em instantes, confira a pasta <strong>Spam / Lixo Eletrônico</strong> de <em>{submission.mainAuthor.email}</em> ou use o botão <strong>Abrir no Gmail Web</strong> acima.</span>
+            <div className="text-[11px] bg-amber-50 text-amber-950 border border-amber-200 rounded-xl p-3 space-y-1.5">
+              <div className="flex items-start gap-2">
+                <span className="font-extrabold text-amber-800 shrink-0 text-xs">⚠️ Importante para e-mails institucionais (@ufpe.br, @recife.pe.gov.br, etc.):</span>
+              </div>
+              <p className="text-amber-900 leading-relaxed">
+                Os servidores de universidades (como o Google Workspace da <strong>UFPE</strong>) e órgãos públicos possuem filtros rigorosos de segurança e costumam direcionar o primeiro e-mail automático diretamente para a pasta <strong>Spam / Lixo Eletrônico</strong>.
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-amber-900 pl-1 font-medium">
+                <li>Acesse a pasta <strong>Spam</strong> do seu e-mail institucional (<em>{submission.mainAuthor.email}</em>) e clique em <em>"Não é spam"</em>.</li>
+                <li>Ou clique no botão <strong>Abrir no Gmail Web</strong> acima para enviar uma cópia direta a partir da sua própria conta de e-mail, garantindo entrega 100% imediata na Caixa de Entrada.</li>
+              </ul>
             </div>
           </div>
         </div>

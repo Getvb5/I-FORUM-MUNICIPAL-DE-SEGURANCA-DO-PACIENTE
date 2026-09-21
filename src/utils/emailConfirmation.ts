@@ -309,16 +309,20 @@ export function generateEmailHtml(submission: WorkSubmissionData, recipientName:
     `;
   } else {
     coAuthorsHtml = `
-      <p style="font-size: 12px; color: #64748b; font-style: italic; margin: 8px 0 0 0;">
+      <p style="font-size: 12px; color: #64748b; font-style: italic; margin: 10px 0 0 0;">
         Nenhum coautor cadastrado (trabalho registrado como autoria individual).
       </p>
     `;
   }
 
+  const roleDisplay = recipientRole === 'Autor(a) Principal'
+    ? 'Autor(a) Principal ( Responsável pela Inscrição do Trabalho )'
+    : recipientRole;
+
   return `
     <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 680px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
       <!-- Top Banner Institutional -->
-      <div style="background-color: #001B44; color: #ffffff; padding: 24px; text-align: center; border-bottom: 5px solid #EA7600;">
+      <div style="background-color: #001B44; color: #ffffff; padding: 24px 20px; text-align: center; border-bottom: 5px solid #EA7600;">
         <span style="display: inline-block; background-color: rgba(234, 118, 0, 0.25); color: #FF9B38; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; border: 1px solid rgba(234, 118, 0, 0.4);">
           SUS RECIFE • COMPROVANTE OFICIAL DE INSCRIÇÃO
         </span>
@@ -333,7 +337,7 @@ export function generateEmailHtml(submission: WorkSubmissionData, recipientName:
       <div style="padding: 24px;">
         <!-- Greeting -->
         <p style="font-size: 15px; margin-top: 0; color: #001B44;">
-          Olá, <strong>${escapeHtml(recipientName)}</strong> (${escapeHtml(recipientRole)}),
+          Olá, <strong>${escapeHtml(recipientName)}</strong> (${escapeHtml(roleDisplay)}),
         </p>
         <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 20px;">
           Confirmamos com sucesso o recebimento e o registro da inscrição do trabalho científico/artístico na Oficina de Compartilhamento de Experiências. Segue abaixo o comprovante timbrado completo com todos os dados informados:
@@ -373,8 +377,8 @@ export function generateEmailHtml(submission: WorkSubmissionData, recipientName:
             </tr>
             <tr>
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Modalidade:</td>
-              <td style="padding: 4px 0; color: #334155; font-weight: bold;">
-                ${submission.modality === 'RELATO_EXPERIENCIA' ? 'Relato de Experiência (Anexo A)' : `Produção Artística (Anexo B - ${escapeHtml(art?.artisticCategory || 'Geral')})`}
+              <td style="padding: 4px 0; color: #001B44; font-weight: 800;">
+                ${submission.modality === 'RELATO_EXPERIENCIA' ? 'Relato de Experiência (Anexo A)' : `Produção Artística (Anexo B - ${escapeHtml(art?.artisticCategory || 'Fotografia')})`}
               </td>
             </tr>
             <tr>
@@ -389,24 +393,22 @@ export function generateEmailHtml(submission: WorkSubmissionData, recipientName:
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Ordem no Eixo:</td>
               <td style="padding: 4px 0; color: #334155;">Vaga ${submission.slotOrder}</td>
             </tr>
-            ${submission.mediaLink ? `
-              <tr>
-                <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Link de Mídia:</td>
-                <td style="padding: 4px 0;"><a href="${escapeHtml(submission.mediaLink)}" target="_blank" style="color: #0284c7; text-decoration: underline;">${escapeHtml(submission.mediaLink)}</a></td>
-              </tr>
-            ` : ''}
             ${submission.attachedFile ? `
               <tr>
                 <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Arquivo Anexo:</td>
                 <td style="padding: 4px 0; color: #334155; font-weight: bold;">${escapeHtml(submission.attachedFile.name)}</td>
               </tr>
             ` : ''}
-            ${submission.accessibilityNeed ? `
+            ${submission.mediaLink ? `
               <tr>
-                <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Acessibilidade:</td>
-                <td style="padding: 4px 0; color: #b45309; font-weight: bold;">${escapeHtml(submission.accessibilityNeed)}</td>
+                <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Link de Mídia:</td>
+                <td style="padding: 4px 0;"><a href="${escapeHtml(submission.mediaLink)}" target="_blank" style="color: #0284c7; text-decoration: underline;">${escapeHtml(submission.mediaLink)}</a></td>
               </tr>
             ` : ''}
+            <tr>
+              <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Acessibilidade:</td>
+              <td style="padding: 4px 0; color: #b45309; font-weight: bold;">${escapeHtml(submission.accessibilityNeed) || 'Nenhuma necessidade específica'}</td>
+            </tr>
           </table>
 
           <!-- Full Content Details -->
@@ -429,7 +431,7 @@ export function generateEmailHtml(submission: WorkSubmissionData, recipientName:
             </tr>
             <tr>
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">E-mail:</td>
-              <td style="padding: 4px 0; color: #334155;">${escapeHtml(submission.mainAuthor.email)}</td>
+              <td style="padding: 4px 0;"><a href="mailto:${escapeHtml(submission.mainAuthor.email)}" style="color: #0284c7; text-decoration: underline;">${escapeHtml(submission.mainAuthor.email)}</a></td>
             </tr>
             <tr>
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Telefone/WhatsApp:</td>
@@ -453,12 +455,10 @@ export function generateEmailHtml(submission: WorkSubmissionData, recipientName:
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Unidade (CNES):</td>
               <td style="padding: 4px 0; color: #334155;">${escapeHtml(submission.mainAuthor.cnesUnit) || 'Não informada'}</td>
             </tr>
-            ${submission.mainAuthor.sesauMatricula ? `
-              <tr>
-                <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Matrícula SESAU:</td>
-                <td style="padding: 4px 0; color: #334155;">${escapeHtml(submission.mainAuthor.sesauMatricula)}</td>
-              </tr>
-            ` : ''}
+            <tr>
+              <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Matrícula SESAU:</td>
+              <td style="padding: 4px 0; color: #334155;">${escapeHtml(submission.mainAuthor.sesauMatricula) || 'Não informada'}</td>
+            </tr>
           </table>
 
           <!-- Coauthors Section -->
@@ -474,7 +474,7 @@ export function generateEmailHtml(submission: WorkSubmissionData, recipientName:
             <strong>Data do Evento:</strong> 30 de Setembro de 2026 (Quarta-feira)<br/>
             <strong>Horário:</strong> 08h00 às 17h00 (Credenciamento na recepção a partir das 07h30)<br/>
             <strong>Local:</strong> Auditório da Interne Soluções em Saúde<br/>
-            <strong>Endereço:</strong> Rua Marquês Amorim, 356 - Boa Vista, Recife/PE (CEP: 50070-330)<br/>
+            <strong>Endereço:</strong> <a href="https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330" target="_blank" style="color: #0284c7; text-decoration: underline;">Rua Marquês Amorim, 356 - Boa Vista, Recife/PE (CEP: 50070-330)</a><br/>
             <strong>Formato de Apresentação:</strong> Comunicação Oral (10 min de apresentação + 5 min de considerações pela banca avaliadora)<br/>
             <strong>Certificação:</strong> 8 Horas emitida pela Escola de Saúde do Recife (ESR/SEGTES)
           </p>
@@ -551,113 +551,135 @@ Secretaria de Saúde do Recife • NMSPR`;
  * Gera o HTML oficial para confirmação de Ouvinte / Participante
  */
 export function generateAttendeeEmailHtml(registration: RegistrationData): string {
+  const formattedDate = new Date(registration.registeredAt || Date.now()).toLocaleString('pt-BR');
+
   return `
-    <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 640px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
-      <div style="background-color: #001B44; color: #ffffff; padding: 24px; text-align: center; border-bottom: 5px solid #EA7600;">
-        <span style="display: inline-block; background-color: rgba(234, 118, 0, 0.25); color: #FF9B38; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;">
-          SUS RECIFE • CONFIRMAÇÃO DE INSCRIÇÃO
+    <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 680px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+      <!-- Top Banner Institutional -->
+      <div style="background-color: #001B44; color: #ffffff; padding: 24px 20px; text-align: center; border-bottom: 5px solid #EA7600;">
+        <span style="display: inline-block; background-color: rgba(234, 118, 0, 0.25); color: #FF9B38; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; border: 1px solid rgba(234, 118, 0, 0.4);">
+          SUS RECIFE • COMPROVANTE OFICIAL DE INSCRIÇÃO
         </span>
-        <h1 style="margin: 0 0 6px 0; font-size: 20px; color: #ffffff;">
+        <h1 style="margin: 0 0 6px 0; font-size: 20px; color: #ffffff; line-height: 1.3;">
           I Fórum Municipal de Qualidade e Segurança do Paciente
         </h1>
         <p style="margin: 0; color: #93c5fd; font-size: 13px; font-weight: bold;">
-          Credenciamento de Participante • Recife 2026
+          Oficina de Compartilhamento de Experiências da Rede SUS Recife
         </p>
       </div>
-
+      
       <div style="padding: 24px;">
+        <!-- Greeting -->
         <p style="font-size: 15px; margin-top: 0; color: #001B44;">
-          Olá, <strong>${escapeHtml(registration.fullName)}</strong>,
+          Olá, <strong>${escapeHtml(registration.fullName)}</strong> (Participante / Ouvinte Credenciado),
         </p>
-        <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-          Sua inscrição para participação presencial no <strong>I Fórum Municipal de Qualidade e Segurança do Paciente</strong> foi confirmada com sucesso!
+        <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 20px;">
+          Confirmamos com sucesso o recebimento e o registro da sua inscrição para participação presencial no <strong>I Fórum Municipal de Qualidade e Segurança do Paciente</strong>. Segue abaixo o comprovante timbrado completo com todos os dados informados:
         </p>
 
-        <!-- Protocol Box -->
-        <div style="background: linear-gradient(135deg, #001B44 0%, #08285c 100%); color: #ffffff; padding: 18px 20px; border-radius: 10px; margin: 20px 0; border-left: 6px solid #EA7600;">
+        <!-- Official Protocol Box -->
+        <div style="background: linear-gradient(135deg, #001B44 0%, #08285c 100%); color: #ffffff; padding: 18px 20px; border-radius: 10px; margin-bottom: 22px; border-left: 6px solid #EA7600; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <div>
               <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #93c5fd; font-weight: bold; display: block;">
-                Protocolo de Inscrição Oficial
+                Número de Protocolo Oficial
               </span>
-              <span style="font-size: 20px; font-weight: 900; font-family: monospace; color: #ffffff;">
+              <span style="font-size: 20px; font-weight: 900; font-family: monospace; letter-spacing: 1px; color: #ffffff;">
                 ${escapeHtml(registration.protocolNumber)}
               </span>
             </div>
-            <div>
+            <div style="text-align: right;">
               <span style="display: inline-block; background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">
-                Confirmada
+                Inscrição Confirmada
+              </span>
+              <span style="display: block; font-size: 11px; color: #cbd5e1; margin-top: 4px;">
+                ${formattedDate}
               </span>
             </div>
           </div>
         </div>
 
-        <!-- Details -->
-        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-          <h3 style="margin: 0 0 10px 0; font-size: 13px; color: #001B44; text-transform: uppercase; font-weight: 800;">
-            Dados Cadastrados
+        <!-- Section 1: Participant Summary -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #001B44; text-transform: uppercase; font-weight: 800; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px;">
+            1. Dados da Inscrição do Participante
           </h3>
           <table style="width: 100%; font-size: 13px; line-height: 1.6; border-collapse: collapse;">
             <tr>
-              <td style="padding: 4px 0; width: 140px; font-weight: bold; color: #64748b;">Nome:</td>
-              <td style="padding: 4px 0; font-weight: bold; color: #001B44;">${escapeHtml(registration.fullName)}</td>
+              <td style="padding: 4px 0; width: 150px; font-weight: bold; color: #64748b;">Nome Completo:</td>
+              <td style="padding: 4px 0; font-weight: bold; color: #001B44; font-size: 14px;">${escapeHtml(registration.fullName)}</td>
             </tr>
             <tr>
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">CPF:</td>
-              <td style="padding: 4px 0; font-family: monospace;">${escapeHtml(registration.cpf)}</td>
+              <td style="padding: 4px 0; font-family: monospace; color: #334155;">${escapeHtml(registration.cpf)}</td>
             </tr>
             <tr>
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">E-mail:</td>
-              <td style="padding: 4px 0;">${escapeHtml(registration.email)}</td>
+              <td style="padding: 4px 0;"><a href="mailto:${escapeHtml(registration.email)}" style="color: #0284c7; text-decoration: underline;">${escapeHtml(registration.email)}</a></td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Telefone/WhatsApp:</td>
+              <td style="padding: 4px 0; color: #334155;">${escapeHtml(registration.phone) || 'Não informado'}</td>
             </tr>
             <tr>
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Perfil:</td>
-              <td style="padding: 4px 0;">${escapeHtml(registration.targetProfile || 'Profissional / Estudante')}</td>
+              <td style="padding: 4px 0; color: #334155;">${escapeHtml(registration.targetProfile || 'Profissional / Estudante')}</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Vínculo:</td>
-              <td style="padding: 4px 0;">${escapeHtml(registration.institutionalLink || '-')}</td>
+              <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Vínculo Institucional:</td>
+              <td style="padding: 4px 0; color: #334155;">${escapeHtml(registration.institutionalLink || 'Não informado')}</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Cargo/Função:</td>
-              <td style="padding: 4px 0;">${escapeHtml(registration.roleOrFunction || '-')}</td>
+              <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Cargo / Função:</td>
+              <td style="padding: 4px 0; color: #334155;">${escapeHtml(registration.roleOrFunction || 'Não informado')}</td>
             </tr>
             <tr>
               <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Unidade (CNES):</td>
-              <td style="padding: 4px 0;">${escapeHtml(registration.cnesUnit || 'Não informada')}</td>
+              <td style="padding: 4px 0; color: #334155;">${escapeHtml(registration.cnesUnit || 'Não informada')}</td>
             </tr>
-            ${registration.accessibilityNeed ? `
-              <tr>
-                <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Acessibilidade:</td>
-                <td style="padding: 4px 0; color: #b45309; font-weight: bold;">${escapeHtml(registration.accessibilityNeed)}</td>
-              </tr>
-            ` : ''}
+            <tr>
+              <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Acessibilidade:</td>
+              <td style="padding: 4px 0; color: #b45309; font-weight: bold;">${escapeHtml(registration.accessibilityNeed) || 'Nenhuma necessidade específica'}</td>
+            </tr>
           </table>
         </div>
 
-        <!-- Venue info -->
-        <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #1e40af; text-transform: uppercase; font-weight: bold;">
-            Local e Data do Evento
-          </h4>
-          <p style="margin: 0; font-size: 12px; color: #1e3a8a; line-height: 1.6;">
-            <strong>Data:</strong> 30 de Setembro de 2026 (08h00 às 17h00)<br/>
-            <strong>Credenciamento:</strong> A partir das 07h30 na recepção<br/>
+        <!-- Section 2: In-Person Event & Venue -->
+        <div style="background-color: #eff6ff; border: 2px solid #bfdbfe; border-radius: 10px; padding: 18px; margin-bottom: 22px;">
+          <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #1e40af; text-transform: uppercase; font-weight: 800;">
+            2. Orientações do Evento Presencial
+          </h3>
+          <p style="margin: 0 0 8px 0; font-size: 13px; color: #1e3a8a; line-height: 1.6;">
+            <strong>Data do Evento:</strong> 30 de Setembro de 2026 (Quarta-feira)<br/>
+            <strong>Horário:</strong> 08h00 às 17h00 (Credenciamento na recepção a partir das 07h30)<br/>
             <strong>Local:</strong> Auditório da Interne Soluções em Saúde<br/>
-            <strong>Endereço:</strong> Rua Marquês Amorim, 356 - Boa Vista, Recife/PE<br/>
+            <strong>Endereço:</strong> <a href="https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330" target="_blank" style="color: #0284c7; text-decoration: underline;">Rua Marquês Amorim, 356 - Boa Vista, Recife/PE (CEP: 50070-330)</a><br/>
+            <strong>Formato:</strong> Presencial (Conferências, Mesas-Redondas, Apresentações Orais e Oficina de Experiências)<br/>
             <strong>Certificação:</strong> 8 Horas emitida pela Escola de Saúde do Recife (ESR/SEGTES)
           </p>
-          <div style="margin-top: 12px;">
-            <a href="https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330" target="_blank" style="display: inline-block; background-color: #EA7600; color: #ffffff; padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: bold; text-decoration: none;">
-              📍 Abrir no Google Maps
+          <div style="margin-top: 14px;">
+            <a href="https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330" target="_blank" style="display: inline-block; background-color: #EA7600; color: #ffffff; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none; box-shadow: 0 2px 4px rgba(234,118,0,0.3);">
+              📍 Abrir Rota no Google Maps
             </a>
           </div>
         </div>
 
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b;">
-          <p style="margin: 0;"><strong>Secretaria de Saúde da Cidade do Recife</strong></p>
-          <p style="margin: 2px 0 0 0;">Núcleo Municipal de Segurança do Paciente (NMSPR) • Coordenação do Fórum</p>
-          <p style="margin: 4px 0 0 0;">Dúvidas: <a href="mailto:nsp.ggai@gmail.com" style="color: #0284c7; text-decoration: none;">nsp.ggai@gmail.com</a></p>
+        <!-- Notice -->
+        <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 14px; border-radius: 6px; font-size: 12px; color: #92400e; line-height: 1.5; margin-bottom: 24px;">
+          <strong>Importante:</strong> Guarde este comprovante para comprovação no credenciamento. A certificação oficial de 8 horas será concedida aos participantes credenciados que comparecerem ao evento presencial.
+        </div>
+
+        <!-- Footer -->
+        <div style="padding-top: 18px; border-top: 2px solid #e2e8f0; font-size: 11px; color: #64748b; line-height: 1.6;">
+          <p style="margin: 0; font-weight: bold; color: #001B44; font-size: 12px;">
+            Prefeitura da Cidade do Recife • Secretaria de Saúde
+          </p>
+          <p style="margin: 2px 0 0 0;">
+            Núcleo Municipal de Segurança do Paciente (NMSPR) • Comissão Organizadora do Fórum
+          </p>
+          <p style="margin: 4px 0 0 0;">
+            Em caso de dúvidas ou esclarecimentos, contate a comissão: <a href="mailto:nsp.ggai@gmail.com" style="color: #0284c7; font-weight: bold; text-decoration: none;">nsp.ggai@gmail.com</a>
+          </p>
         </div>
       </div>
     </div>

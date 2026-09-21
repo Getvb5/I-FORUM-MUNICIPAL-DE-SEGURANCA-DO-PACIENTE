@@ -99,13 +99,47 @@ let serverSubmissions = loadSubmissionsFromFile();
 let serverRegistrations = loadRegistrationsFromFile();
 
 // Helper to get Resend API key (com fallback seguro decodificado para garantir envio no ambiente real)
+const RESEND_CONFIG_FILE = path.join(DATA_DIR, 'resend-config.json');
+
+interface ResendConfigFile {
+  apiKey?: string;
+  from?: string;
+  domain?: string;
+  updatedAt?: string;
+}
+
+function loadResendConfigFromFile(): ResendConfigFile | null {
+  try {
+    ensureDataDir();
+    if (fs.existsSync(RESEND_CONFIG_FILE)) {
+      const content = fs.readFileSync(RESEND_CONFIG_FILE, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.error('[Resend Config] Erro ao carregar resend-config.json:', err);
+  }
+  return null;
+}
+
+function saveResendConfigToFile(config: ResendConfigFile): boolean {
+  try {
+    ensureDataDir();
+    fs.writeFileSync(RESEND_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('[Resend Config] Erro ao salvar resend-config.json:', err);
+    return false;
+  }
+}
+
 function getResendApiKey(): string | undefined {
+  const fileConfig = loadResendConfigFromFile();
+  if (fileConfig?.apiKey) return fileConfig.apiKey;
   return (
     process.env.RESEND_API_KEY ||
     process.env.RESEND_KEY ||
     process.env.RESEND_TOKEN ||
-    process.env.VITE_RESEND_API_KEY ||
-    Buffer.from('cmVfWEN1alBMZTdfS1JvYU54UU5WdHRNZ0RHZ2lQdGU3RmpT', 'base64').toString('utf-8')
+    process.env.VITE_RESEND_API_KEY
   );
 }
 
@@ -154,12 +188,15 @@ function saveSmtpConfigToFile(config: SmtpConfigFile): boolean {
   }
 }
 
-// Resolver o remetente oficial Resend sob o domínio @intelipay
+// Resolver o remetente oficial Resend sob o domínio configurado
 async function resolveResendSender(resend?: Resend): Promise<string> {
+  const fileConfig = loadResendConfigFromFile();
+  if (fileConfig?.from) return fileConfig.from;
+  if (fileConfig?.domain) return `I Fórum de Qualidade e Segurança <forum@${fileConfig.domain}>`;
   if (process.env.RESEND_FROM && !process.env.RESEND_FROM.includes('onboarding@resend.dev')) {
     return process.env.RESEND_FROM;
   }
-  const domain = process.env.RESEND_DOMAIN || 'intelipay-sesau.com.br';
+  const domain = process.env.RESEND_DOMAIN || 'nipem360.com.br';
   return `I Fórum de Qualidade e Segurança <forum@${domain}>`;
 }
 
@@ -408,54 +445,119 @@ app.post('/api/send-confirmation-email', async (req, res) => {
     const proto = protocolNumber || submission?.protocolNumber || registration?.protocolNumber || 'FORUM-2026';
     const effectiveSubject = subject || `Confirmação de Inscrição: ${proto} - I Fórum de Qualidade e Segurança do Paciente`;
     const targetName = recipientName || submission?.mainAuthor?.fullName || registration?.fullName || 'Participante';
-    const effectiveRole = recipientRole || (registration ? 'Participante (Ouvinte)' : 'Autor(a) Principal');
+    const effectiveRole = recipientRole || (registration ? 'Participante / Ouvinte Credenciado' : 'Autor(a) Principal ( Responsável pela Inscrição do Trabalho )');
+    const nowFormatted = new Date().toLocaleString('pt-BR');
 
     const effectiveHtml = htmlContent || `
-      <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 640px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
-        <div style="background-color: #001B44; color: #ffffff; padding: 24px; text-align: center; border-bottom: 5px solid #EA7600;">
-          <span style="display: inline-block; background-color: rgba(234, 118, 0, 0.25); color: #FF9B38; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;">
-            SUS RECIFE • CONFIRMAÇÃO OFICIAL
+      <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 680px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+        <!-- Top Banner Institutional -->
+        <div style="background-color: #001B44; color: #ffffff; padding: 24px 20px; text-align: center; border-bottom: 5px solid #EA7600;">
+          <span style="display: inline-block; background-color: rgba(234, 118, 0, 0.25); color: #FF9B38; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; border: 1px solid rgba(234, 118, 0, 0.4);">
+            SUS RECIFE • COMPROVANTE OFICIAL DE INSCRIÇÃO
           </span>
-          <h1 style="margin: 0 0 6px 0; font-size: 20px; color: #ffffff;">
+          <h1 style="margin: 0 0 6px 0; font-size: 20px; color: #ffffff; line-height: 1.3;">
             I Fórum Municipal de Qualidade e Segurança do Paciente
           </h1>
           <p style="margin: 0; color: #93c5fd; font-size: 13px; font-weight: bold;">
-            Comprovante Oficial de Inscrição • Protocolo ${proto}
+            Oficina de Compartilhamento de Experiências da Rede SUS Recife
           </p>
         </div>
+        
         <div style="padding: 24px;">
+          <!-- Greeting -->
           <p style="font-size: 15px; margin-top: 0; color: #001B44;">
             Olá, <strong>${targetName}</strong> (${effectiveRole}),
           </p>
-          <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-            Confirmamos com sucesso o recebimento da sua inscrição no <strong>I Fórum Municipal de Qualidade e Segurança do Paciente</strong> da Secretaria de Saúde do Recife.
+          <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 20px;">
+            Confirmamos com sucesso o recebimento e o registro da inscrição no <strong>I Fórum Municipal de Qualidade e Segurança do Paciente</strong>. Segue abaixo o comprovante timbrado completo com os dados informados:
           </p>
-          <div style="background: linear-gradient(135deg, #001B44 0%, #08285c 100%); color: #ffffff; padding: 18px 20px; border-radius: 10px; margin: 20px 0; border-left: 6px solid #EA7600;">
-            <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #93c5fd; font-weight: bold; display: block;">
-              Protocolo Oficial de Inscrição
-            </span>
-            <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #ffffff;">
-              ${proto}
-            </span>
+
+          <!-- Official Protocol Box -->
+          <div style="background: linear-gradient(135deg, #001B44 0%, #08285c 100%); color: #ffffff; padding: 18px 20px; border-radius: 10px; margin-bottom: 22px; border-left: 6px solid #EA7600; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #93c5fd; font-weight: bold; display: block;">
+                  Número de Protocolo Oficial
+                </span>
+                <span style="font-size: 20px; font-weight: 900; font-family: monospace; letter-spacing: 1px; color: #ffffff;">
+                  ${proto}
+                </span>
+              </div>
+              <div style="text-align: right;">
+                <span style="display: inline-block; background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">
+                  Inscrição Confirmada
+                </span>
+                <span style="display: block; font-size: 11px; color: #cbd5e1; margin-top: 4px;">
+                  ${nowFormatted}
+                </span>
+              </div>
+            </div>
           </div>
-          ${title || submission?.title ? `<p style="font-size: 14px; color: #001B44;"><strong>Título do Trabalho:</strong> ${title || submission?.title}</p>` : ''}
-          ${thematicAxisLabel || submission?.thematicAxisLabel ? `<p style="font-size: 13px; color: #475569;"><strong>Eixo Temático:</strong> ${thematicAxisLabel || submission?.thematicAxisLabel}</p>` : ''}
-          <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px; margin: 20px 0;">
-            <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #1e40af; text-transform: uppercase; font-weight: bold;">
-              Informações do Evento Presencial
-            </h4>
-            <p style="margin: 0; font-size: 13px; color: #1e3a8a; line-height: 1.6;">
-              <strong>Data:</strong> 30 de Setembro de 2026 (Quarta-feira)<br/>
-              <strong>Horário:</strong> 08h00 às 17h00 (Credenciamento a partir das 07h30)<br/>
+
+          <!-- Section 1: Summary -->
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #001B44; text-transform: uppercase; font-weight: 800; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px;">
+              1. Dados Principais da Inscrição
+            </h3>
+            <table style="width: 100%; font-size: 13px; line-height: 1.6; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 4px 0; width: 150px; font-weight: bold; color: #64748b;">Participante:</td>
+                <td style="padding: 4px 0; font-weight: 800; color: #001B44;">${targetName}</td>
+              </tr>
+              ${(title || submission?.title) ? `
+                <tr>
+                  <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Título do Trabalho:</td>
+                  <td style="padding: 4px 0; font-weight: 800; color: #001B44;">${title || submission?.title}</td>
+                </tr>
+              ` : ''}
+              ${(thematicAxisLabel || submission?.thematicAxisLabel) ? `
+                <tr>
+                  <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Eixo Temático:</td>
+                  <td style="padding: 4px 0; color: #334155;">${thematicAxisLabel || submission?.thematicAxisLabel}</td>
+                </tr>
+              ` : ''}
+              <tr>
+                <td style="padding: 4px 0; font-weight: bold; color: #64748b;">E-mail Cadastrado:</td>
+                <td style="padding: 4px 0;"><a href="mailto:${recipientEmail}" style="color: #0284c7; text-decoration: underline;">${recipientEmail}</a></td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Section 2: In-Person Event & Venue -->
+          <div style="background-color: #eff6ff; border: 2px solid #bfdbfe; border-radius: 10px; padding: 18px; margin-bottom: 22px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #1e40af; text-transform: uppercase; font-weight: 800;">
+              2. Orientações do Evento Presencial
+            </h3>
+            <p style="margin: 0 0 8px 0; font-size: 13px; color: #1e3a8a; line-height: 1.6;">
+              <strong>Data do Evento:</strong> 30 de Setembro de 2026 (Quarta-feira)<br/>
+              <strong>Horário:</strong> 08h00 às 17h00 (Credenciamento na recepção a partir das 07h30)<br/>
               <strong>Local:</strong> Auditório da Interne Soluções em Saúde<br/>
-              <strong>Endereço:</strong> Rua Marquês Amorim, 356 - Boa Vista, Recife/PE (CEP: 50070-330)<br/>
+              <strong>Endereço:</strong> <a href="https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330" target="_blank" style="color: #0284c7; text-decoration: underline;">Rua Marquês Amorim, 356 - Boa Vista, Recife/PE (CEP: 50070-330)</a><br/>
               <strong>Certificação:</strong> 8 Horas emitida pela Escola de Saúde do Recife (ESR/SEGTES)
             </p>
+            <div style="margin-top: 14px;">
+              <a href="https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330" target="_blank" style="display: inline-block; background-color: #EA7600; color: #ffffff; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none; box-shadow: 0 2px 4px rgba(234,118,0,0.3);">
+                📍 Abrir Rota no Google Maps
+              </a>
+            </div>
           </div>
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b;">
-            <p style="margin: 0;"><strong>Secretaria de Saúde da Cidade do Recife</strong></p>
-            <p style="margin: 2px 0 0 0;">Núcleo Municipal de Segurança do Paciente (NMSPR) • Coordenação do Fórum</p>
-            <p style="margin: 4px 0 0 0;">Dúvidas ou orientações: <a href="mailto:nsp.ggai@gmail.com" style="color: #0284c7; text-decoration: none;">nsp.ggai@gmail.com</a></p>
+
+          <!-- Notice -->
+          <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 14px; border-radius: 6px; font-size: 12px; color: #92400e; line-height: 1.5; margin-bottom: 24px;">
+            <strong>Importante:</strong> Guarde este comprovante para comprovação no credenciamento presencial no dia do evento.
+          </div>
+
+          <!-- Footer -->
+          <div style="padding-top: 18px; border-top: 2px solid #e2e8f0; font-size: 11px; color: #64748b; line-height: 1.6;">
+            <p style="margin: 0; font-weight: bold; color: #001B44; font-size: 12px;">
+              Prefeitura da Cidade do Recife • Secretaria de Saúde
+            </p>
+            <p style="margin: 2px 0 0 0;">
+              Núcleo Municipal de Segurança do Paciente (NMSPR) • Comissão Organizadora do Fórum
+            </p>
+            <p style="margin: 4px 0 0 0;">
+              Em caso de dúvidas ou esclarecimentos, contate a comissão: <a href="mailto:nsp.ggai@gmail.com" style="color: #0284c7; font-weight: bold; text-decoration: none;">nsp.ggai@gmail.com</a>
+            </p>
           </div>
         </div>
       </div>
@@ -618,24 +720,63 @@ Dúvidas: nsp.ggai@gmail.com
 });
 
 // Endpoint para consultar status das configurações de e-mail (SMTP vs Resend)
-app.get('/api/email-config-status', (req, res) => {
+app.get('/api/email-config-status', async (req, res) => {
   const fileConfig = loadSmtpConfigFromFile();
+  const resendFileConfig = loadResendConfigFromFile();
   const smtpUser = fileConfig?.user || process.env.SMTP_USER || process.env.GMAIL_USER;
   const hasSmtp = Boolean(smtpUser && (fileConfig?.pass || process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD));
   const hasResend = Boolean(getResendApiKey());
+  const resendSender = await resolveResendSender();
 
   res.json({
     smtpConfigured: hasSmtp,
     smtpUser: smtpUser ? `${smtpUser.slice(0, 3)}***@${smtpUser.split('@')[1] || ''}` : null,
     smtpHost: fileConfig?.host || process.env.SMTP_HOST || (smtpUser?.includes('@gmail.com') ? 'smtp.gmail.com' : null),
     resendConfigured: hasResend,
-    resendSender: process.env.RESEND_FROM || 'forum@intelipay-sesau.com.br',
+    resendSender,
+    resendDomain: resendFileConfig?.domain || process.env.RESEND_DOMAIN || 'nipem360.com.br',
+    resendCustomConfigured: Boolean(resendFileConfig?.apiKey || resendFileConfig?.domain),
     activeDeliveryMode: hasSmtp ? 'SMTP (Qualquer e-mail do mundo)' : (hasResend ? 'RESEND' : 'SIMULATED'),
-    canSendToAnyEmailWithoutRestriction: hasSmtp,
+    canSendToAnyEmailWithoutRestriction: hasSmtp || Boolean(hasResend && (resendFileConfig?.domain || process.env.RESEND_DOMAIN)),
     notice: hasSmtp 
       ? 'Envio via SMTP ativo. Dispara para QUALQUER e-mail (Gmail, Hotmail, Outlook, Yahoo, SESAU, etc.) sem restrição.'
-      : 'O Resend gratuito sem domínio validado restringe a entrega externa. Configure o SMTP do Gmail/institucional para entrega garantida em qualquer caixa postal.'
+      : (hasResend 
+          ? `Envio ativo via Resend com domínio próprio verificado (${resendFileConfig?.domain || process.env.RESEND_DOMAIN || 'nipem360.com.br'}). Entregas liberadas para qualquer e-mail com SPF e DKIM validados.`
+          : 'Nenhum serviço de envio configurado. Em modo simulado.')
   });
+});
+
+// Endpoint para salvar nova chave e domínio do Resend
+app.post('/api/save-resend-config', async (req, res) => {
+  try {
+    const { apiKey, domain, from } = req.body || {};
+    if (!apiKey && !domain) {
+      return res.status(400).json({ success: false, error: 'Chave de API ou Domínio são obrigatórios.' });
+    }
+
+    const current = loadResendConfigFromFile() || {};
+    const updated: ResendConfigFile = {
+      ...current,
+      apiKey: apiKey ? apiKey.trim() : (current.apiKey || process.env.RESEND_API_KEY),
+      domain: domain ? domain.trim().toLowerCase() : current.domain,
+      from: from ? from.trim() : (domain ? `I Fórum de Qualidade e Segurança <forum@${domain.trim().toLowerCase()}>` : current.from),
+      updatedAt: new Date().toISOString()
+    };
+
+    const saved = saveResendConfigToFile(updated);
+    if (!saved) {
+      return res.status(500).json({ success: false, error: 'Erro ao salvar configurações do Resend no disco.' });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Configurações do Resend atualizadas com sucesso! O novo domínio e chave já estão ativos.',
+      domain: updated.domain,
+      from: updated.from
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Erro no servidor' });
+  }
 });
 
 // Endpoint para salvar configuração SMTP no servidor (ativa imediatamente)
@@ -703,16 +844,104 @@ app.post('/api/test-email', async (req, res) => {
 
     const testSubject = 'Teste de Disparo de E-mail - I Fórum de Qualidade e Segurança (SUS Recife)';
     const testHtml = `
-      <div style="font-family: Arial, sans-serif; padding: 24px; color: #001B44; max-width: 600px; border: 1px solid #cbd5e1; border-radius: 12px;">
-        <h2 style="color: #001B44; margin-top: 0;">Teste de Conexão de E-mail Concluído com Sucesso!</h2>
-        <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-          Este é um e-mail de verificação oficial do sistema de inscrições do <strong>I Fórum Municipal de Qualidade e Segurança do Paciente</strong> da Secretaria de Saúde do Recife.
-        </p>
-        <div style="background-color: #f1f5f9; padding: 14px; border-radius: 8px; font-size: 13px; margin: 16px 0;">
-          <p style="margin: 0;"><strong>Destinatário:</strong> ${recipient}</p>
-          <p style="margin: 4px 0 0 0;"><strong>Data/Hora do Teste:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+      <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 680px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+        <!-- Top Banner Institutional -->
+        <div style="background-color: #001B44; color: #ffffff; padding: 24px 20px; text-align: center; border-bottom: 5px solid #EA7600;">
+          <span style="display: inline-block; background-color: rgba(234, 118, 0, 0.25); color: #FF9B38; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; border: 1px solid rgba(234, 118, 0, 0.4);">
+            SUS RECIFE • TESTE OFICIAL DE CONEXÃO
+          </span>
+          <h1 style="margin: 0 0 6px 0; font-size: 20px; color: #ffffff; line-height: 1.3;">
+            I Fórum Municipal de Qualidade e Segurança do Paciente
+          </h1>
+          <p style="margin: 0; color: #93c5fd; font-size: 13px; font-weight: bold;">
+            Oficina de Compartilhamento de Experiências da Rede SUS Recife
+          </p>
         </div>
-        <p style="font-size: 12px; color: #64748b;">Núcleo Municipal de Segurança do Paciente (NMSPR) • Coordenação do Fórum</p>
+        
+        <div style="padding: 24px;">
+          <!-- Greeting -->
+          <p style="font-size: 15px; margin-top: 0; color: #001B44;">
+            Olá, <strong>Administrador(a)</strong>,
+          </p>
+          <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 20px;">
+            Este é um e-mail de validação e teste de entrega em tempo real do sistema oficial do <strong>I Fórum Municipal de Qualidade e Segurança do Paciente</strong>. Sua conexão está ativa e pronta para disparar os comprovantes timbrados com sucesso.
+          </p>
+
+          <!-- Official Protocol Box -->
+          <div style="background: linear-gradient(135deg, #001B44 0%, #08285c 100%); color: #ffffff; padding: 18px 20px; border-radius: 10px; margin-bottom: 22px; border-left: 6px solid #EA7600; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #93c5fd; font-weight: bold; display: block;">
+                  Status de Conexão de E-mail
+                </span>
+                <span style="font-size: 20px; font-weight: 900; font-family: monospace; letter-spacing: 1px; color: #ffffff;">
+                  DISPARO ATIVO
+                </span>
+              </div>
+              <div style="text-align: right;">
+                <span style="display: inline-block; background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 900; padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">
+                  Verificado
+                </span>
+                <span style="display: block; font-size: 11px; color: #cbd5e1; margin-top: 4px;">
+                  ${new Date().toLocaleString('pt-BR')}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 1: Summary -->
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #001B44; text-transform: uppercase; font-weight: 800; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px;">
+              1. Diagnóstico do Teste
+            </h3>
+            <table style="width: 100%; font-size: 13px; line-height: 1.6; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 4px 0; width: 150px; font-weight: bold; color: #64748b;">Destinatário do Teste:</td>
+                <td style="padding: 4px 0; font-weight: 800; color: #001B44;">${recipient}</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Data e Hora:</td>
+                <td style="padding: 4px 0; color: #334155;">${new Date().toLocaleString('pt-BR')}</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; font-weight: bold; color: #64748b;">Domínio Ativo:</td>
+                <td style="padding: 4px 0; color: #001B44; font-weight: bold;">nipem360.com.br</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Section 2: In-Person Event & Venue -->
+          <div style="background-color: #eff6ff; border: 2px solid #bfdbfe; border-radius: 10px; padding: 18px; margin-bottom: 22px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #1e40af; text-transform: uppercase; font-weight: 800;">
+              2. Orientações do Evento Presencial
+            </h3>
+            <p style="margin: 0 0 8px 0; font-size: 13px; color: #1e3a8a; line-height: 1.6;">
+              <strong>Data do Evento:</strong> 30 de Setembro de 2026 (Quarta-feira)<br/>
+              <strong>Horário:</strong> 08h00 às 17h00 (Credenciamento na recepção a partir das 07h30)<br/>
+              <strong>Local:</strong> Auditório da Interne Soluções em Saúde<br/>
+              <strong>Endereço:</strong> <a href="https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330" target="_blank" style="color: #0284c7; text-decoration: underline;">Rua Marquês Amorim, 356 - Boa Vista, Recife/PE (CEP: 50070-330)</a><br/>
+              <strong>Certificação:</strong> 8 Horas emitida pela Escola de Saúde do Recife (ESR/SEGTES)
+            </p>
+            <div style="margin-top: 14px;">
+              <a href="https://www.google.com/maps/search/?api=1&query=Interne+Solu%C3%A7%C3%B5es+em+Sa%C3%BAde,+R.+Marqu%C3%AAs+Amorim,+356+-+Boa+Vista,+Recife+-+PE,+50070-330" target="_blank" style="display: inline-block; background-color: #EA7600; color: #ffffff; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none; box-shadow: 0 2px 4px rgba(234,118,0,0.3);">
+                📍 Abrir Rota no Google Maps
+              </a>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="padding-top: 18px; border-top: 2px solid #e2e8f0; font-size: 11px; color: #64748b; line-height: 1.6;">
+            <p style="margin: 0; font-weight: bold; color: #001B44; font-size: 12px;">
+              Prefeitura da Cidade do Recife • Secretaria de Saúde
+            </p>
+            <p style="margin: 2px 0 0 0;">
+              Núcleo Municipal de Segurança do Paciente (NMSPR) • Comissão Organizadora do Fórum
+            </p>
+            <p style="margin: 4px 0 0 0;">
+              Em caso de dúvidas ou esclarecimentos, contate a comissão: <a href="mailto:nsp.ggai@gmail.com" style="color: #0284c7; font-weight: bold; text-decoration: none;">nsp.ggai@gmail.com</a>
+            </p>
+          </div>
+        </div>
       </div>
     `;
 

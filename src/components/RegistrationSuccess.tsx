@@ -104,7 +104,7 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
           registration,
           recipientEmail: emailToSend,
           recipientName: registration.fullName,
-          recipientRole: 'Participante (Ouvinte)',
+          recipientRole: 'Participante / Ouvinte Credenciado',
           subject,
           htmlContent,
           textContent,
@@ -391,9 +391,17 @@ export const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
               </div>
             )}
 
-            <div className="text-[11px] bg-amber-50 text-amber-900 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
-              <span className="font-bold shrink-0">💡 Dica de Entrega:</span>
-              <span>Para garantia de recebimento sem risco de spam ou filtros corporativos, use também o botão <strong>"Abrir no Gmail Web"</strong> para despachar diretamente ou <strong>"WhatsApp"</strong> para envio ao participante.</span>
+            <div className="text-[11px] bg-amber-50 text-amber-950 border border-amber-200 rounded-xl p-3 space-y-1.5">
+              <div className="flex items-start gap-2">
+                <span className="font-extrabold text-amber-800 shrink-0 text-xs">⚠️ Importante para e-mails institucionais (@ufpe.br, @recife.pe.gov.br, etc.):</span>
+              </div>
+              <p className="text-amber-900 leading-relaxed">
+                Os filtros de segurança de universidades (como o Google Workspace da <strong>UFPE</strong>) e órgãos públicos costumam direcionar mensagens automáticas de sistemas externos para a pasta <strong>Spam / Lixo Eletrônico</strong>.
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-amber-900 pl-1 font-medium">
+                <li>Verifique a pasta <strong>Spam</strong> do seu e-mail institucional (<em>{registration.email}</em>) e marque como <em>"Não é spam"</em>.</li>
+                <li>Ou utilize o botão <strong>"Abrir no Gmail Web"</strong> acima para despachar uma cópia direta da sua conta Google, ou <strong>"WhatsApp"</strong> para envio direto.</li>
+              </ul>
             </div>
           </div>
         </div>

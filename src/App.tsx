@@ -8,6 +8,7 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { RulesEditalModal } from './components/RulesEditalModal';
 import { ConsultSubmissionModal } from './components/ConsultSubmissionModal';
 import { ProgramacaoModal } from './components/ProgramacaoModal';
+import { EmailSettingsModal } from './components/EmailSettingsModal';
 import { Footer } from './components/Footer';
 import { WorkSubmissionData, AdminUser } from './types';
 import { getCurrentAdmin, logoutAdmin } from './utils/authService';
@@ -17,7 +18,7 @@ import {
   deleteServerSubmission,
   clearAllServerSubmissions
 } from './utils/submissionsApi';
-import { FileEdit, FolderKanban, PlusCircle, Lock, ShieldAlert, Search } from 'lucide-react';
+import { FileEdit, FolderKanban, PlusCircle, Lock, ShieldAlert, Search, Mail } from 'lucide-react';
 
 export default function App() {
   const [submissions, setSubmissions] = useState<WorkSubmissionData[]>([]);
@@ -26,6 +27,7 @@ export default function App() {
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(getCurrentAdmin());
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isConsultOpen, setIsConsultOpen] = useState(false);
+  const [isEmailSettingsOpen, setIsEmailSettingsOpen] = useState(false);
   const [isProgramOpen, setIsProgramOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
 
@@ -210,6 +212,17 @@ export default function App() {
                 <span>Consultar Inscrição</span>
               </button>
 
+              <button
+                type="button"
+                onClick={() => setIsEmailSettingsOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-[#001B44] text-[#001B44] hover:text-white border border-sky-200 text-xs font-bold transition cursor-pointer shadow-2xs"
+                title="Configurar envio automático de e-mails para qualquer endereço (Gmail SMTP)"
+              >
+                <Mail className="w-3.5 h-3.5 text-[#3498FE]" />
+                <span className="hidden sm:inline">Configurar E-mails</span>
+                <span className="sm:hidden">E-mails</span>
+              </button>
+
               {currentAdmin && (
                 <span className="hidden sm:flex text-emerald-700 font-bold items-center gap-1 text-[11px] bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -292,6 +305,11 @@ export default function App() {
       <ProgramacaoModal
         isOpen={isProgramOpen}
         onClose={() => setIsProgramOpen(false)}
+      />
+
+      <EmailSettingsModal
+        isOpen={isEmailSettingsOpen}
+        onClose={() => setIsEmailSettingsOpen(false)}
       />
 
       {/* Institutional Footer */}
