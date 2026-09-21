@@ -1,6 +1,58 @@
 import { WorkSubmissionData } from '../types';
 
 const SUBMISSIONS_STORAGE_KEY = 'sesau_recife_forum_submissions_2026';
+const SYNC_CHANNEL_NAME = 'sesau_recife_forum_sync_channel';
+
+// Singleton de BroadcastChannel para sincronização instantânea entre abas e janelas
+let syncChannel: BroadcastChannel | null = null;
+try {
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    syncChannel = new BroadcastChannel(SYNC_CHANNEL_NAME);
+  }
+} catch (_) {}
+
+/**
+ * Notifica todas as abas e janelas ativas sobre alterações nas submissões/vagas.
+ */
+export function broadcastSubmissionsChange(): void {
+  try {
+    if (syncChannel) {
+      syncChannel.postMessage({ type: 'SUBMISSIONS_UPDATED', timestamp: Date.now() });
+    }
+  } catch (_) {}
+}
+
+/**
+ * Permite que componentes escutem atualizações em tempo real vindas de outras abas ou janelas.
+ */
+export function subscribeToSubmissionsUpdates(onUpdate: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const handleMessage = (e: MessageEvent) => {
+    if (e.data && e.data.type === 'SUBMISSIONS_UPDATED') {
+      onUpdate();
+    }
+  };
+
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === SUBMISSIONS_STORAGE_KEY) {
+      onUpdate();
+    }
+  };
+
+  try {
+    syncChannel?.addEventListener('message', handleMessage);
+  } catch (_) {}
+
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    try {
+      syncChannel?.removeEventListener('message', handleMessage);
+    } catch (_) {}
+    window.removeEventListener('storage', handleStorage);
+  };
+}
 
 /**
  * Remove buffers pesados de base64 (dataUrl) do localStorage para não estourar a cota de 5MB do navegador.
@@ -24,11 +76,17 @@ function sanitizeForLocalStorage(list: WorkSubmissionData[]): WorkSubmissionData
 
 /**
  * Busca todas as submissões no servidor (fonte oficial da verdade).
- * Caso o servidor esteja temporariamente inacessível, recorre ao cache do localStorage.
+ * Usa cache-busting rigoroso para garantir que novos navegadores sempre vejam os dados mais recentes.
  */
 export async function fetchServerSubmissions(): Promise<WorkSubmissionData[]> {
   try {
-    const response = await fetch('/api/submissions');
+    const response = await fetch(`/api/submissions?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
     if (response.ok) {
       const result = await response.json();
       if (result.success && Array.isArray(result.data)) {
@@ -50,7 +108,7 @@ export async function fetchServerSubmissions(): Promise<WorkSubmissionData[]> {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(cleanSubmissionPayload(pendingSub))
-                  }).catch(() => {});
+                  }).then(() => broadcastSubmissionsChange()).catch(() => {});
                 });
                 return [...serverData, ...missingOnServer];
               }
@@ -86,7 +144,7 @@ export async function fetchServerSubmissions(): Promise<WorkSubmissionData[]> {
 }
 
 /**
- * Busca estatísticas de vagas do servidor em tempo real (muito leve e instantâneo).
+ * Busca estatísticas de vagas do servidor em tempo real (muito leve, sem cache).
  */
 export async function fetchSubmissionStats(): Promise<{
   countsByAxis: Record<string, number>;
@@ -94,7 +152,13 @@ export async function fetchSubmissionStats(): Promise<{
   total: number;
 } | null> {
   try {
-    const res = await fetch('/api/submissions/stats');
+    const res = await fetch(`/api/submissions/stats?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
@@ -165,6 +229,7 @@ export async function saveServerSubmission(
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
+          broadcastSubmissionsChange();
           return { success: true, data: result.data };
         }
       }
@@ -210,6 +275,9 @@ export async function deleteServerSubmission(id: string): Promise<boolean> {
     const response = await fetch(`/api/submissions/${id}`, {
       method: 'DELETE'
     });
+    if (response.ok) {
+      broadcastSubmissionsChange();
+    }
     return response.ok;
   } catch (err) {
     console.error('Erro ao excluir no servidor:', err);
@@ -232,6 +300,9 @@ export async function clearAllServerSubmissions(): Promise<boolean> {
     const response = await fetch('/api/submissions', {
       method: 'DELETE'
     });
+    if (response.ok) {
+      broadcastSubmissionsChange();
+    }
     return response.ok;
   } catch (err) {
     console.error('Erro ao limpar no servidor:', err);

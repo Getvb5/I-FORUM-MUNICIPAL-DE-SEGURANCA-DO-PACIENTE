@@ -1,4 +1,4 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useEffect, useId, useCallback } from 'react';
 import { 
   FileText, 
   Send, 
@@ -24,7 +24,8 @@ import {
   Download,
   Link2,
   Video,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import { 
   WorkSubmissionData, 
@@ -45,7 +46,7 @@ import {
 import { formatCPF, isValidCPF } from '../utils/cpfValidator';
 import { countWords, getWordCountStatus } from '../utils/wordCounter';
 import { sendSubmissionConfirmationEmail } from '../utils/emailConfirmation';
-import { saveServerSubmission } from '../utils/submissionsApi';
+import { saveServerSubmission, fetchSubmissionStats, subscribeToSubmissionsUpdates } from '../utils/submissionsApi';
 
 interface SubmissionFormProps {
   onSubmit: (submission: WorkSubmissionData) => void;
@@ -59,6 +60,42 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   existingSubmissions = []
 }) => {
   const formId = useId();
+
+  // Live Stats State para sincronização instantânea de vagas com o servidor e outros navegadores
+  const [liveStats, setLiveStats] = useState<{
+    countsByAxis: Record<string, number>;
+    remainingSlots: Record<string, number>;
+    total: number;
+  } | null>(null);
+  const [isRefreshingStats, setIsRefreshingStats] = useState(false);
+
+  const refreshLiveStats = useCallback(async () => {
+    setIsRefreshingStats(true);
+    try {
+      const stats = await fetchSubmissionStats();
+      if (stats) {
+        setLiveStats(stats);
+      }
+    } catch (e) {
+      console.warn('Erro ao atualizar estatísticas em tempo real:', e);
+    } finally {
+      setIsRefreshingStats(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLiveStats();
+    const interval = setInterval(refreshLiveStats, 3000);
+    const unsubscribe = subscribeToSubmissionsUpdates(refreshLiveStats);
+    const handleFocus = () => refreshLiveStats();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshLiveStats]);
 
   // Basic Submission State
   const [thematicAxis, setThematicAxis] = useState<ThematicAxisId>('EIXO_1');
@@ -176,11 +213,11 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   const artisticContextStatus = getWordCountStatus(artisticCreationContext, SUBMISSION_RULES.limits.artisticContextWords);
   const artisticTextStatus = getWordCountStatus(artisticTextContent, SUBMISSION_RULES.limits.artisticTextWords);
 
-  // Vacancy counts per Axis
+  // Vacancy counts per Axis (prioriza dados liveStats direto do servidor para sincronização instantânea entre navegadores)
   const axisCounts: Record<ThematicAxisId, number> = {
-    EIXO_1: existingSubmissions.filter(s => s.thematicAxis === 'EIXO_1').length,
-    EIXO_2: existingSubmissions.filter(s => s.thematicAxis === 'EIXO_2').length,
-    EIXO_3: existingSubmissions.filter(s => s.thematicAxis === 'EIXO_3').length
+    EIXO_1: liveStats?.countsByAxis ? (liveStats.countsByAxis.EIXO_1 ?? 0) : existingSubmissions.filter(s => s.thematicAxis === 'EIXO_1').length,
+    EIXO_2: liveStats?.countsByAxis ? (liveStats.countsByAxis.EIXO_2 ?? 0) : existingSubmissions.filter(s => s.thematicAxis === 'EIXO_2').length,
+    EIXO_3: liveStats?.countsByAxis ? (liveStats.countsByAxis.EIXO_3 ?? 0) : existingSubmissions.filter(s => s.thematicAxis === 'EIXO_3').length
   };
 
   // Eligibility check: If main author is resident or student, at least one coauthor must be professional/manager
@@ -560,14 +597,37 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
 
         {/* Escolha do Eixo Temático */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-            Eixo Temático Escolhido <span className="text-[#EA7600]">*</span>
-          </label>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Eixo Temático Escolhido <span className="text-[#EA7600]">*</span>
+            </label>
+            <div className="flex items-center gap-2 text-[11px] text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="font-semibold text-slate-700">Vagas em tempo real:</span>
+              <span className="text-slate-600">
+                E1: {10 - axisCounts.EIXO_1} | E2: {10 - axisCounts.EIXO_2} | E3: {10 - axisCounts.EIXO_3}
+              </span>
+              <button
+                type="button"
+                onClick={refreshLiveStats}
+                className="ml-1 text-[#001B44] hover:text-[#EA7600] inline-flex items-center gap-1 font-bold cursor-pointer transition"
+                title="Atualizar contagem de vagas do servidor"
+              >
+                <RefreshCw className={`w-3 h-3 ${isRefreshingStats ? 'animate-spin text-[#EA7600]' : ''}`} />
+                <span>Atualizar</span>
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {THEMATIC_AXES.map((axis) => {
               const count = axisCounts[axis.id] || 0;
               const isSelected = thematicAxis === axis.id;
               const remaining = Math.max(0, axis.maxSlots - count);
+              const pct = Math.min(100, Math.round((count / axis.maxSlots) * 100));
 
               return (
                 <div
@@ -575,7 +635,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                   onClick={() => setThematicAxis(axis.id)}
                   className={`p-4 rounded-xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
                     isSelected
-                      ? 'border-[#EA7600] bg-orange-50/40 shadow-xs'
+                      ? 'border-[#EA7600] bg-orange-50/40 shadow-xs ring-2 ring-[#EA7600]/10'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
@@ -584,13 +644,35 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                       <span className={`text-[11px] font-black uppercase tracking-wider ${isSelected ? 'text-[#EA7600]' : 'text-slate-500'}`}>
                         Eixo {axis.number}
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                        {remaining} vagas disponíveis
+                      <span 
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          remaining === 0
+                            ? 'bg-rose-50 text-rose-800 border-rose-200'
+                            : count > 0
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        }`}
+                      >
+                        {remaining === 0 
+                          ? 'Vagas Esgotadas' 
+                          : `${remaining} ${remaining === 1 ? 'vaga disponível' : 'vagas disponíveis'}`}
                       </span>
                     </div>
+
                     <h4 className="font-extrabold text-xs text-[#001B44] leading-snug mb-2">
                       {axis.title}
                     </h4>
+
+                    {/* Barra de ocupação de vagas */}
+                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mb-2.5">
+                      <div 
+                        className={`h-full transition-all duration-300 rounded-full ${
+                          count >= axis.maxSlots ? 'bg-rose-500' : 'bg-[#EA7600]'
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+
                     <p className="text-[11px] text-slate-600 leading-relaxed">
                       {axis.id === 'EIXO_2' ? (
                         <>
@@ -607,9 +689,15 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
-                    <span className="text-slate-500 font-medium">Ordem de inscrição:</span>
+                    <span className="text-slate-500 font-medium">
+                      {count > 0 ? `${count} de ${axis.maxSlots} ocupadas` : '10 vagas totais'}
+                    </span>
                     <span className="font-bold text-[#001B44]">
-                      {count >= axis.maxSlots ? 'Lista de Espera' : `Vaga #${count + 1} de ${axis.maxSlots}`}
+                      {count >= axis.maxSlots ? (
+                        <span className="text-rose-600">Lista de Espera</span>
+                      ) : (
+                        `Vaga #${count + 1} de ${axis.maxSlots}`
+                      )}
                     </span>
                   </div>
                 </div>

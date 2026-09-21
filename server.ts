@@ -286,6 +286,9 @@ app.get('/api/email-status', async (req, res) => {
 
 // Retornar todas as submissões armazenadas no servidor (sempre lendo o estado mais recente do disco)
 app.get('/api/submissions', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   serverSubmissions = loadSubmissionsFromFile();
   res.json({
     success: true,
@@ -296,6 +299,9 @@ app.get('/api/submissions', (req, res) => {
 
 // Estatísticas rápidas de vagas em tempo real para sincronização instantânea entre múltiplos navegadores
 app.get('/api/submissions/stats', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   serverSubmissions = loadSubmissionsFromFile();
   const countsByAxis = {
     EIXO_1: 0,

@@ -16,7 +16,8 @@ import {
   fetchServerSubmissions,
   saveServerSubmission,
   deleteServerSubmission,
-  clearAllServerSubmissions
+  clearAllServerSubmissions,
+  subscribeToSubmissionsUpdates
 } from './utils/submissionsApi';
 import { FileEdit, FolderKanban, PlusCircle, Lock, ShieldAlert, Search, Mail } from 'lucide-react';
 
@@ -48,12 +49,21 @@ export default function App() {
 
     loadSubmissions();
 
-    // Atualização periódica para que múltiplos navegadores e coordenadores vejam as vagas em tempo real
-    const interval = setInterval(loadSubmissions, 5000);
+    // Sincronização instantânea entre abas e janelas (BroadcastChannel)
+    const unsubscribe = subscribeToSubmissionsUpdates(loadSubmissions);
+
+    // Atualização periódica para sincronizar com múltiplos navegadores em tempo real (a cada 3s)
+    const interval = setInterval(loadSubmissions, 3000);
+
+    // Atualização imediata ao focar na janela/aba
+    const handleFocus = () => loadSubmissions();
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       isMounted = false;
+      unsubscribe();
       clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
