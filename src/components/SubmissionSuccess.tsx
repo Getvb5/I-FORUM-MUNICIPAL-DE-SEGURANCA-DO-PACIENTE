@@ -231,7 +231,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                 </h3>
                 <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
                   <Check className="w-3 h-3 text-emerald-600" />
-                  Domínio @intelipay-sesau.com.br
+                  Envio Ativo via Gmail Oficial (nsp.ggai@gmail.com)
                 </span>
               </div>
 
